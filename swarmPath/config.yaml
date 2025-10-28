@@ -1,0 +1,25 @@
+name: "swarmPath"
+version: "1.0.0"
+slug: "swarmpath"
+description: "Connette il dispositivo microBees a swarmPath per la gestione e il monitoraggio centralizzati."
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+host_network: true
+init: false
+homeassistant_api: false
+map:
+  - config:rw
+  - ssl:rw
+  - addons:rw
+  - share:rw
+  - backup:rw
+  - media:rw
+privileged:
+  - NET_ADMIN
+  - SYS_ADMIN
+  - SYS_MODULE
+  - NET_RAW
