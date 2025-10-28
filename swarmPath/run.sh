@@ -54,7 +54,7 @@ get_host_mac() {
 generate_csr_once() {
     # Caso 1: esistono già sia CSR che KEY -> li teniamo, NON rigeneriamo
     if [ -f "$CSR_FILE" ] && [ -s "$CSR_FILE" ] && [ -f "$KEY_FILE" ] && [ -s "$KEY_FILE" ]; then
-        # echo -e "${CYAN}🔐 CSR e chiave già presenti in $IDENTITY_DIR. Li riuso senza rigenerare.${RESET}"
+        # Silenzioso: non stampiamo nulla
         return 0
     fi
 
@@ -71,12 +71,12 @@ generate_csr_once() {
     fi
 
     # Chiave RSA 2048 + CSR col CN = MAC
+    # >>> QUI silenziamo completamente openssl (niente +++++ in output)
     openssl req -new -newkey rsa:2048 -nodes \
         -keyout "$KEY_FILE" -out "$CSR_FILE" \
-        -subj "/CN=$MAC"
+        -subj "/CN=$MAC" >/dev/null 2>&1
 
     chmod 600 "$KEY_FILE"
-
 }
 
 # --- Invia richiesta certificato / profilo ovpn ---
@@ -107,7 +107,7 @@ EOF
             echo "$BODY" | grep -q "<ca>"
             if [ $? -eq 0 ]; then
                 echo "$BODY" > "$OVPN_FILE"
-                echo -e "${GREEN} Config ricevuta"
+                echo -e "${GREEN} Config ricevuta${RESET}"
                 return 0
             else
                 echo -e "${YELLOW} 200 ricevuto ma qualcosa è andato storto ${RESET}"
@@ -127,7 +127,10 @@ EOF
 
 # --- Connessione VPN ---
 connect_vpn() {
-    exec openvpn --config "$OVPN_FILE"
+    # >>> QUI silenziamo OpenVPN:
+    # --verb 0 = massima quiete
+    # >/dev/null 2>&1 = niente output a console
+    exec openvpn --config "$OVPN_FILE" --verb 0 >/dev/null 2>&1
 }
 
 # --- MAIN ---
