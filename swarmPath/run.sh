@@ -60,13 +60,13 @@ generate_csr_once() {
 
     # Caso 2: stato incoerente (esiste solo uno dei due file)
     if { [ -f "$CSR_FILE" ] && [ -s "$CSR_FILE" ]; } && { [ ! -f "$KEY_FILE" ] || [ ! -s "$KEY_FILE" ]; }; then
-        echo -e "${RED}   Esiste $CSR_FILE ma manca/è vuoto $KEY_FILE in $IDENTITY_DIR.${RESET}"
-        echo -e "${RED}   Per sicurezza NON rigenero automaticamente.${RESET}"
+        echo -e "${RED}Esiste $CSR_FILE ma manca/è vuoto $KEY_FILE in $IDENTITY_DIR.${RESET}"
+        echo -e "${RED}Per sicurezza NON rigenero automaticamente.${RESET}"
         exit 1
     fi
     if { [ -f "$KEY_FILE" ] && [ -s "$KEY_FILE" ]; } && { [ ! -f "$CSR_FILE" ] || [ ! -s "$CSR_FILE" ]; }; then
-        echo -e "${RED}   Esiste $KEY_FILE ma manca/è vuoto $CSR_FILE in $IDENTITY_DIR.${RESET}"
-        echo -e "${RED}   Per sicurezza NON rigenero automaticamente.${RESET}"
+        echo -e "${RED}Esiste $KEY_FILE ma manca/è vuoto $CSR_FILE in $IDENTITY_DIR.${RESET}"
+        echo -e "${RED}Per sicurezza NON rigenero automaticamente.${RESET}"
         exit 1
     fi
 
@@ -75,7 +75,6 @@ generate_csr_once() {
     openssl req -new -newkey rsa:2048 -nodes \
         -keyout "$KEY_FILE" -out "$CSR_FILE" \
         -subj "/CN=$MAC" >/dev/null 2>&1
-
     chmod 600 "$KEY_FILE"
 }
 
@@ -100,26 +99,26 @@ EOF
     BODY=$(echo "$RESPONSE" | head -n -1)
     STATUS=$(echo "$RESPONSE" | tail -n 1)
 
-    echo "➡️  HTTP Status: $STATUS"
+    echo "HTTP Status: $STATUS"
 
     case "$STATUS" in
         200)
             echo "$BODY" | grep -q "<ca>"
             if [ $? -eq 0 ]; then
                 echo "$BODY" > "$OVPN_FILE"
-                echo -e "${GREEN} Config ricevuta${RESET}"
+                echo -e "${GREEN}Config ricevuta${RESET}"
                 return 0
             else
-                echo -e "${YELLOW} 200 ricevuto ma qualcosa è andato storto ${RESET}"
+                echo -e "${YELLOW}200 ricevuto ma qualcosa è andato storto${RESET}"
                 return 1
             fi
             ;;
         400|404)
-            echo -e "${RED} Errore permanente. Interrompo. ${RESET}"
+            echo -e "${RED}Errore permanente. Interrompo.${RESET}"
             return 2
             ;;
         401|403|500|*)
-            echo -e "${YELLOW}  Errore temporaneo. ${RESET}"
+            echo -e "${YELLOW}Errore temporaneo.${RESET}"
             return 1
             ;;
     esac
@@ -136,10 +135,10 @@ connect_vpn() {
 # --- MAIN ---
 MAC=$(get_host_mac)
 if [ -z "$MAC" ]; then
-    echo -e "${RED} Impossibile recuperare MAC address${RESET}"
+    echo -e "${RED}Impossibile recuperare MAC address${RESET}"
     exit 1
 fi
-echo -e "${CYAN} MAC rilevato:${RESET} $MAC"
+echo -e "${CYAN}MAC rilevato:${RESET} $MAC"
 
 generate_csr_once
 
@@ -155,17 +154,17 @@ while [ $RETRY -lt $MAX_RETRY ]; do
     else
         CODE=$?
         if [ $CODE -eq 2 ]; then
-            echo -e "${RED} Errore fatale, interrompo.${RESET}"
+            echo -e "${RED}Errore fatale, interrompo.${RESET}"
             exit 1
         fi
     fi
 
     RETRY=$((RETRY+1))
     if [ $RETRY -lt $MAX_RETRY ]; then
-        echo -e "${YELLOW} Tentativo fallito. Attendo 5 minuti prima di riprovare...${RESET}"
+        echo -e "${YELLOW}Tentativo fallito. Attendo 5 minuti prima di riprovare...${RESET}"
         sleep 300
     fi
 done
 
-echo -e "${RED} Tentativi esauriti dopo $MAX_RETRY iterazioni. Esco.${RESET}"
+echo -e "${RED}Tentativi esauriti dopo $MAX_RETRY iterazioni. Esco.${RESET}"
 exit 1
