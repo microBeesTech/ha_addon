@@ -13,7 +13,7 @@ Legge dispositivi, entità e stati da Home Assistant e li pubblica su MQTT verso
 | `smartgate_serial` | vuoto | Serial del gateway; vuoto = MAC dell'host, calcolato come l'integrazione |
 | `heartbeat_interval` | `300` | Secondi tra due heartbeat |
 | `send_device_status` | `true` | Inoltra gli eventi `state_changed` |
-| `log_level` | `info` | `debug`, `info`, `warning`, `error` |
+| `log_level` | `info` | `off` nessun log · `error` solo errori · `warning` anche avvisi (riconnessioni) · `info` anche avvio, connessioni e riepilogo dell'invio iniziale · `debug` anche ogni JSON inviato per intero (`MQTT → <topic> <json>`) |
 
 ## Cosa pubblica
 **Nessuna logica sui dati**: l'add-on prende i dati di Home Assistant così come sono, li mette in un pacchetto JSON e

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4] - 2026-10-26
+### Aggiunto
+- `log_level: off` per non avere log; livelli in ordine `off`, `error`, `warning`, `info`, `debug`.
+
+## [0.1.3] - 2026-10-26
+### Modificato
+- Con `log_level: debug` il log mostra per intero ogni JSON inviato (`MQTT → <topic> <json>`); i log interni di
+  websockets e paho restano a INFO (prima stampavano frame troncati e ping).
+
+## [0.1.2] - 2026-10-26
+### Aggiunto
+- Icona e logo microBees (`icon.png`, `logo.png`, gli stessi di swarmPath).
+
 ## [0.1.1] - 2026-10-26
 ### Corretto
 - Avvio con `with-contenv` (`run.sh`): senza, s6-overlay non passava `SUPERVISOR_TOKEN` e l'add-on si fermava subito.

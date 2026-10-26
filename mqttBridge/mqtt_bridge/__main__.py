@@ -14,9 +14,18 @@ from .publisher import MqttPublisher
 _LOGGER = logging.getLogger("mqtt_bridge")
 
 
+def apply_log_level(level: str) -> None:
+    """`off` = nessun log; altrimenti la soglia scelta (`debug` mostra anche ogni JSON inviato per intero)."""
+    logging.disable(logging.CRITICAL if level == "off" else logging.NOTSET)
+    logging.getLogger().setLevel(logging.CRITICAL if level == "off" else level.upper())
+    # Le librerie in debug stampano frame troncati e ping: al massimo INFO, il debug è solo per i nostri messaggi
+    logging.getLogger("websockets").setLevel(logging.INFO)
+    logging.getLogger("paho").setLevel(logging.INFO)
+
+
 async def main() -> None:
     settings = load_settings()
-    logging.getLogger().setLevel(settings.log_level.upper())
+    apply_log_level(settings.log_level)
     _LOGGER.info("Avvio: %r", settings)
 
     ha = HomeAssistantClient(settings.ha_url, settings.supervisor_token)

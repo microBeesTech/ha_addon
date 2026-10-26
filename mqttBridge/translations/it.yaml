@@ -21,4 +21,5 @@ configuration:
     name: Inoltra i cambi di stato
     description: Inoltra gli eventi state_changed delle entità dei dispositivi.
   log_level:
-    name: Livello di log
+    name: Log
+    description: "off = nessun log; error, warning, info = dal meno al più dettagliato; debug = anche ogni JSON inviato per intero."

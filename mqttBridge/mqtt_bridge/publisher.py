@@ -46,6 +46,8 @@ class MqttPublisher:
         if not self._client.is_connected():
             _LOGGER.warning("MQTT non connesso: messaggio non inviato su %s", topic)
             return False
+        # Con log_level debug il log mostra ogni pacchetto inviato per intero
+        _LOGGER.debug("MQTT → %s %s", topic, payload)
         info = self._client.publish(topic, payload)
         if info.rc != mqtt.MQTT_ERR_SUCCESS:
             _LOGGER.warning("Pubblicazione su %s fallita (rc=%s)", topic, info.rc)
