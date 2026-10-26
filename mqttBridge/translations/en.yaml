@@ -21,4 +21,5 @@ configuration:
     name: Forward state changes
     description: Forward state_changed events of device entities.
   log_level:
-    name: Log level
+    name: Logs
+    description: "off = no logs; error, warning, info = from least to most detailed; debug = also every JSON sent, in full."
