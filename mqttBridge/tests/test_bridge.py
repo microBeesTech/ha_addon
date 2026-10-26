@@ -35,6 +35,9 @@ class FakeMqtt:
         self.sent.append((topic, json.loads(payload)))
         return True
 
+    async def wait_connected(self):
+        return None
+
 
 def _make(zha_inputs, extra_devices=(), extra_entities=()):
     device, entities, states = zha_inputs
@@ -121,3 +124,19 @@ def test_nuova_entita_di_un_dispositivo_poi_segue_anche_negli_stati(zha_inputs):
     asyncio.run(scenario())
 
     assert [m["message_type"] for _, m in mqtt.sent] == ["entity_registry_updated", "state_changed"]
+
+
+def test_invio_iniziale_aspetta_il_broker(zha_inputs):
+    """Con MQTT non ancora connesso l'invio iniziale non parte: niente messaggi persi all'avvio."""
+    from mqtt_bridge.publisher import MqttPublisher
+
+    publisher = MqttPublisher("h", 1883, None, None, client_id="test")
+
+    async def scenario():
+        waiting = asyncio.create_task(publisher.wait_connected())
+        await asyncio.sleep(0.05)
+        assert not waiting.done()  # broker non connesso: l'invio iniziale resta in attesa
+        publisher._connected.set()  # come fa _handle_connect alla connessione
+        await asyncio.wait_for(waiting, 1)
+
+    asyncio.run(scenario())

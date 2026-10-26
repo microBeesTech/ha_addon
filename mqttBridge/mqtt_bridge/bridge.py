@@ -45,6 +45,8 @@ class Bridge:
                 await self._ha.subscribe("entity_registry_updated", self._on_entity_registry_updated)
                 if self._settings.send_device_status:
                     await self._ha.subscribe("state_changed", self._on_state_changed)
+                # L'invio iniziale parte solo con il broker connesso, altrimenti i messaggi andrebbero persi
+                await self._mqtt.wait_connected()
                 await self.full_sync()
                 delay = 1
                 await reader
@@ -69,6 +71,14 @@ class Bridge:
         self._publish(messages.heartbeat(self._settings.smartgate_serial))
 
     # ---------------------------------------------------------------------- invio iniziale ---
+
+    async def resync(self) -> None:
+        """Rifà l'invio iniziale dopo una riconnessione al broker (i messaggi nel frattempo sono andati persi)."""
+        try:
+            await self.full_sync()
+        except Exception as err:
+            # Se è caduto anche Home Assistant, l'invio iniziale lo rifà la sua riconnessione
+            _LOGGER.warning("Nuovo invio iniziale dopo la riconnessione MQTT non riuscito: %s", err)
 
     async def full_sync(self) -> None:
         devices = await self._ha.command({"type": "config/device_registry/list"})

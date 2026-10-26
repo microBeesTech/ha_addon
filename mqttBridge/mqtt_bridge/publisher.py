@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import threading
 from collections.abc import Callable
 
 import paho.mqtt.client as mqtt
@@ -23,6 +25,7 @@ class MqttPublisher:
         self._host = host
         self._port = port
         self._on_connected = on_connected
+        self._connected = threading.Event()  # impostato dal thread di paho, letto dall'asyncio del bridge
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
         if username:
             self._client.username_pw_set(username, password)
@@ -42,6 +45,12 @@ class MqttPublisher:
     def connected(self) -> bool:
         return self._client.is_connected()
 
+    async def wait_connected(self) -> None:
+        """Attende la prima connessione (o la riconnessione) al broker."""
+        if not self._connected.is_set():
+            _LOGGER.info("In attesa del broker MQTT %s:%s", self._host, self._port)
+            await asyncio.to_thread(self._connected.wait)
+
     def publish(self, topic: str, payload: str) -> bool:
         if not self._client.is_connected():
             _LOGGER.warning("MQTT non connesso: messaggio non inviato su %s", topic)
@@ -59,9 +68,11 @@ class MqttPublisher:
             _LOGGER.error("Connessione MQTT rifiutata: %s", reason_code)
             return
         _LOGGER.info("Connesso al broker MQTT %s:%s", self._host, self._port)
+        self._connected.set()
         if self._on_connected:
             self._on_connected()
 
     def _handle_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
+        self._connected.clear()
         if reason_code != 0:
             _LOGGER.warning("MQTT disconnesso (%s), riconnessione automatica", reason_code)

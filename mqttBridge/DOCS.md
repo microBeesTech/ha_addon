@@ -9,7 +9,7 @@ Legge dispositivi, entità e stati da Home Assistant e li pubblica su MQTT verso
 | `mqtt_host` | — | Broker MQTT microBees (es. `test.microbees.com`) |
 | `mqtt_port` | `1883` | Porta (senza TLS in questa versione) |
 | `mqtt_username` / `mqtt_password` | — | Credenziali del broker (la password non compare mai nei log) |
-| `topic` | `sensor.in.31` | Topic di tutti i messaggi |
+| `topic` | `ha.bridge` | Topic di tutti i messaggi. Non usare `sensor.in.*`: lì ascolta BnBees, che proverebbe a elaborarli. Il consumer `ha-bridge-consumer` lo lega con la stessa routing key |
 | `smartgate_serial` | vuoto | Serial del gateway; vuoto = MAC dell'host, calcolato come l'integrazione |
 | `heartbeat_interval` | `300` | Secondi tra due heartbeat |
 | `send_device_status` | `true` | Inoltra gli eventi `state_changed` |
@@ -44,8 +44,10 @@ Un dispositivo nuovo arriva come una serie di eventi (`device_registry_updated` 
   lettura: `config/device_registry/list`, `config/entity_registry/list` + `get_entries`, `get_states`, eventi
   `device_registry_updated`, `entity_registry_updated` e `state_changed`. Se Home Assistant si riavvia, l'add-on si riconnette (attesa crescente fino
   a 60 s) e rifà l'invio iniziale.
-- **MQTT**: paho-mqtt 2.x, riconnessione automatica (1–120 s). Se il broker non è raggiungibile i messaggi di quel
-  momento vengono scartati e registrati nel log.
+- **MQTT**: paho-mqtt 2.x, riconnessione automatica (1–120 s). L'invio iniziale parte solo a broker connesso e viene
+  rifatto a ogni riconnessione; gli eventi arrivati mentre il broker non era raggiungibile sono scartati (log WARNING).
+- **Utente MQTT su RabbitMQ**: il plugin MQTT ricava il vhost dal nome utente, `vhost:utente` (es. `bnbees:homeassistant`).
+  Senza prefisso i messaggi finiscono nel vhost predefinito `/` e il consumer sul vhost `bnbees` non li vede.
 - **Serial del gateway**: `host_network: true`, quindi `uuid.getnode()` vede le interfacce dell'host come il core di HA.
   Se il MAC non è leggibile il log lo segnala: impostare `smartgate_serial`.
 

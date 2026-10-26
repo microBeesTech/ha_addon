@@ -29,15 +29,26 @@ async def main() -> None:
     _LOGGER.info("Avvio: %r", settings)
 
     ha = HomeAssistantClient(settings.ha_url, settings.supervisor_token)
+    loop = asyncio.get_running_loop()
     bridge: Bridge
+    first_connection = True
+
+    def on_mqtt_connected() -> None:
+        # Gira nel thread di paho. Come l'integrazione: heartbeat appena connessi; dalla seconda connessione in poi
+        # (broker caduto e tornato) si rifà anche l'invio iniziale.
+        nonlocal first_connection
+        bridge.send_heartbeat()
+        if not first_connection:
+            asyncio.run_coroutine_threadsafe(bridge.resync(), loop)
+        first_connection = False
+
     mqtt = MqttPublisher(
         settings.mqtt_host,
         settings.mqtt_port,
         settings.mqtt_username,
         settings.mqtt_password,
         client_id=f"ha-mqtt-bridge-{settings.smartgate_serial.replace(':', '')}",
-        # Come l'integrazione: un heartbeat appena connessi al broker
-        on_connected=lambda: bridge.send_heartbeat(),
+        on_connected=on_mqtt_connected,
     )
     bridge = Bridge(settings, ha, mqtt)
 
@@ -45,7 +56,6 @@ async def main() -> None:
     tasks = [asyncio.create_task(bridge.run()), asyncio.create_task(bridge.heartbeat_loop())]
 
     stop = asyncio.Event()
-    loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
     await stop.wait()
