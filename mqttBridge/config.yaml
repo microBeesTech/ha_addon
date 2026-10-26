@@ -1,5 +1,5 @@
 name: "microBees MQTT Bridge"
-version: "0.1.0"
+version: "0.1.1"
 slug: "mqtt_bridge"
 description: "Invia su MQTT verso microBees dispositivi, entità ed eventi di Home Assistant così come sono."
 url: "https://github.com/microBeesTech/ha_addon/tree/main/mqttBridge"

@@ -54,7 +54,9 @@ def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) 
 
     token = env.get("SUPERVISOR_TOKEN", "")
     if not token:
-        raise RuntimeError("SUPERVISOR_TOKEN mancante: serve homeassistant_api: true in config.yaml")
+        raise RuntimeError(
+            "SUPERVISOR_TOKEN mancante: serve homeassistant_api: true in config.yaml e l'avvio da run.sh (with-contenv)"
+        )
     if not options.get("mqtt_host"):
         raise RuntimeError("mqtt_host non configurato nelle opzioni dell'add-on")
 
