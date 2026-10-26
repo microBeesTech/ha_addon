@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.6] - 2026-10-26
+### Corretto
+- L'invio iniziale (`new_device`, `new_entity`) aspetta la connessione al broker: prima poteva partire con MQTT ancora
+  non connesso e i messaggi andavano persi.
+- Dopo una riconnessione al broker l'invio iniziale viene rifatto.
+
+## [0.1.5] - 2026-10-26
+### Modificato
+- Topic predefinito `ha.bridge` (prima `sensor.in.31`, dove ascolta BnBees). Consumer: `ha-bridge-consumer`.
+
 ## [0.1.4] - 2026-10-26
 ### Aggiunto
 - `log_level: off` per non avere log; livelli in ordine `off`, `error`, `warning`, `info`, `debug`.

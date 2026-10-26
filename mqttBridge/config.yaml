@@ -1,5 +1,5 @@
 name: "microBees MQTT Bridge"
-version: "0.1.4"
+version: "0.1.6"
 slug: "mqtt_bridge"
 description: "Invia su MQTT verso microBees dispositivi, entità ed eventi di Home Assistant così come sono."
 url: "https://github.com/microBeesTech/ha_addon/tree/main/mqttBridge"
@@ -21,7 +21,7 @@ options:
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
-  topic: "sensor.in.31"
+  topic: "ha.bridge"
   smartgate_serial: ""
   heartbeat_interval: 300
   send_device_status: true

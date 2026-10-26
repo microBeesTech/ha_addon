@@ -67,7 +67,7 @@ def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) 
         mqtt_port=int(options.get("mqtt_port", 1883)),
         mqtt_username=options.get("mqtt_username") or None,
         mqtt_password=options.get("mqtt_password") or None,
-        topic=options.get("topic") or "sensor.in.31",
+        topic=options.get("topic") or "ha.bridge",
         smartgate_serial=serial,
         heartbeat_interval=int(options.get("heartbeat_interval", 300)),
         send_device_status=bool(options.get("send_device_status", True)),
