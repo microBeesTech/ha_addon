@@ -1,0 +1,24 @@
+configuration:
+  mqtt_host:
+    name: MQTT broker
+    description: microBees MQTT broker host (e.g. test.microbees.com).
+  mqtt_port:
+    name: Port
+    description: Broker port (1883 without TLS).
+  mqtt_username:
+    name: Username
+  mqtt_password:
+    name: Password
+  topic:
+    name: Topic
+    description: Topic used for all messages.
+  smartgate_serial:
+    name: Gateway serial
+    description: Leave empty to use the host MAC address (same as bnbees_integration). Format aa:bb:cc:dd:ee:ff.
+  heartbeat_interval:
+    name: Heartbeat interval (seconds)
+  send_device_status:
+    name: Forward state changes
+    description: Forward state_changed events of device entities.
+  log_level:
+    name: Log level
