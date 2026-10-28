@@ -1,4 +1,4 @@
-# microBees Add-ons per Home Assistant — Claude Context (STRICT MODE)
+# Add-on per Home Assistant — Claude Context (STRICT MODE)
 
 Repository di add-on (`repository.yaml`): una cartella per add-on (`swarmPath/`, `mqttBridge/`, …), ognuna con
 `config.yaml`, `build.yaml`, `Dockerfile`, `README.md`, `DOCS.md`, `CHANGELOG.md`, `translations/`.
@@ -18,7 +18,8 @@ Repository di add-on (`repository.yaml`): una cartella per add-on (`swarmPath/`,
   sono. VIETATI calcoli, conversioni, valori ricavati, filtri, attese/raggruppamenti. Entità senza dispositivo
   incluse (`new_entity`). QoS 0. Ogni nuova regola è una decisione di Federico, da registrare nell'ADR.
 - Topic, broker e credenziali solo dalla configurazione dell'add-on.
-- Home Assistant solo in lettura tramite WebSocket del Supervisor.
+- Home Assistant tramite WebSocket del Supervisor: in lettura, più i comandi del Cloud su `ha.cmd.<serial>` (busta
+  `{nonce, command, version, params}`: `resync`, `call_service` passato così com'è, senza filtri; ADR 0002).
 
 ## Test e controlli prima del commit
 `cd <addon> && .venv/bin/python -m pytest -q`, `ruff check . && ruff format --check .`, build Docker di almeno una architettura.

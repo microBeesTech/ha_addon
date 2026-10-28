@@ -5,7 +5,9 @@
 2. ogni evento `device_registry_updated` → il messaggio con l'evento e il dispositivo com'è ora;
 3. ogni evento `entity_registry_updated` → il messaggio con l'evento e l'entità com'è ora;
 4. ogni evento `state_changed` → il messaggio con l'evento (se `send_device_status` è attivo);
-5. heartbeat periodico.
+5. heartbeat periodico;
+6. ogni comando ricevuto su `command_topic` (`resync` → di nuovo il punto 1; `call_service` → servizio di Home
+   Assistant) e un `command_result` con l'esito.
 
 Nessun filtro, nessuna attesa, nessun valore ricavato: ogni evento diventa un messaggio, il consumer decide.
 """
@@ -13,6 +15,7 @@ Nessun filtro, nessuna attesa, nessun valore ricavato: ogni evento diventa un me
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
@@ -68,7 +71,7 @@ class Bridge:
             self.send_heartbeat()
 
     def send_heartbeat(self) -> None:
-        self._publish(messages.heartbeat(self._settings.smartgate_serial))
+        self._publish(messages.heartbeat(self._settings.smartgate_serial, self._settings.addon_version))
 
     # ---------------------------------------------------------------------- invio iniziale ---
 
@@ -115,6 +118,31 @@ class Bridge:
 
     async def _on_state_changed(self, event: dict[str, Any]) -> None:
         self._publish(messages.state_event(event, self._settings.smartgate_serial))
+
+    # ----------------------------------------------------------------------------- comandi ---
+
+    async def handle_command(self, payload: bytes) -> None:
+        """Esegue un comando ricevuto e pubblica l'esito, senza filtri sul servizio chiamato.
+
+        Un `command` sconosciuto non esegue niente e non ha esito: solo il log.
+        """
+        command: Any = payload.decode("utf-8", errors="replace")  # se non è JSON l'esito riporta il testo ricevuto
+        try:
+            command = json.loads(payload)
+            name = messages.command_name(command)
+            if name == "resync":
+                await self.full_sync()
+                result = None
+            elif name == "call_service":
+                result = await self._ha.command(messages.service_call(command))
+            else:
+                _LOGGER.warning("Comando sconosciuto scartato: %r", name)
+                return
+        except Exception as err:
+            _LOGGER.warning("Comando non eseguito: %s", err)
+            self._publish(messages.command_result(command, None, str(err), self._settings.smartgate_serial))
+            return
+        self._publish(messages.command_result(command, result, None, self._settings.smartgate_serial))
 
     # ---------------------------------------------------------------------------- helper ---
 

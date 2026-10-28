@@ -1,21 +1,24 @@
 configuration:
   mqtt_host:
     name: Broker MQTT
-    description: Host del broker MQTT microBees (es. test.microbees.com).
+    description: Host del broker MQTT.
   mqtt_port:
     name: Porta
     description: Porta del broker (1883 senza TLS).
   mqtt_username:
     name: Utente
-    description: "Su RabbitMQ nel formato vhost:utente, es. bnbees:homeassistant."
+    description: "Su RabbitMQ nel formato vhost:utente."
   mqtt_password:
     name: Password
   topic:
     name: Topic
     description: Topic su cui pubblicare tutti i messaggi.
+  command_topic:
+    name: Topic dei comandi
+    description: Topic da cui ricevere i comandi del Cloud. Vuoto = ha/cmd/<serial> (con i due punti, minuscolo).
   smartgate_serial:
     name: Serial del gateway
-    description: Lascia vuoto per usare il MAC dell'host (come bnbees_integration). Formato aa:bb:cc:dd:ee:ff.
+    description: Lascia vuoto per usare il MAC dell'host. Formato aa:bb:cc:dd:ee:ff.
   heartbeat_interval:
     name: Intervallo heartbeat (secondi)
   send_device_status:

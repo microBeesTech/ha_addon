@@ -1,4 +1,4 @@
-"""Pubblicazione su MQTT (paho-mqtt 2.x) con riconnessione automatica."""
+"""Pubblicazione su MQTT (paho-mqtt 2.x) con riconnessione automatica e ricezione dei comandi."""
 
 from __future__ import annotations
 
@@ -21,10 +21,14 @@ class MqttPublisher:
         password: str | None,
         client_id: str,
         on_connected: Callable[[], None] | None = None,
+        command_topic: str | None = None,
+        on_command: Callable[[bytes], None] | None = None,
     ) -> None:
         self._host = host
         self._port = port
         self._on_connected = on_connected
+        self._command_topic = command_topic
+        self._on_command = on_command
         self._connected = threading.Event()  # impostato dal thread di paho, letto dall'asyncio del bridge
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
         if username:
@@ -32,6 +36,7 @@ class MqttPublisher:
         self._client.reconnect_delay_set(min_delay=1, max_delay=120)
         self._client.on_connect = self._handle_connect
         self._client.on_disconnect = self._handle_disconnect
+        self._client.on_message = self._handle_message
 
     def start(self) -> None:
         self._client.connect_async(self._host, self._port, keepalive=60)
@@ -69,8 +74,17 @@ class MqttPublisher:
             return
         _LOGGER.info("Connesso al broker MQTT %s:%s", self._host, self._port)
         self._connected.set()
+        if self._command_topic:
+            # A ogni connessione: la sottoscrizione non sopravvive a una sessione nuova del broker
+            client.subscribe(self._command_topic, qos=0)
+            _LOGGER.info("In ascolto dei comandi su %s", self._command_topic)
         if self._on_connected:
             self._on_connected()
+
+    def _handle_message(self, client, userdata, message) -> None:
+        _LOGGER.debug("MQTT ← %s %s", message.topic, message.payload.decode("utf-8", errors="replace"))
+        if self._on_command:
+            self._on_command(message.payload)
 
     def _handle_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
         self._connected.clear()

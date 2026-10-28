@@ -22,22 +22,27 @@ class Settings:
     mqtt_username: str | None
     mqtt_password: str | None
     topic: str
+    command_topic: str
     smartgate_serial: str
     heartbeat_interval: int
     send_device_status: bool
     log_level: str
     supervisor_token: str
+    addon_version: str = "dev"
     ha_url: str = HA_WEBSOCKET_URL
 
     def __repr__(self) -> str:  # niente password né token nei log
-        return f"Settings(mqtt={self.mqtt_host}:{self.mqtt_port}, topic={self.topic}, serial={self.smartgate_serial})"
+        return (
+            f"Settings(mqtt={self.mqtt_host}:{self.mqtt_port}, topic={self.topic}, "
+            f"commands={self.command_topic}, serial={self.smartgate_serial})"
+        )
 
 
 def host_mac() -> str:
-    """MAC dell'host nel formato dell'integrazione (`utils.get_mac_address`).
+    """MAC dell'host nel formato `aa:bb:cc:dd:ee:ff`.
 
     Con `host_network: true` l'add-on vede le stesse interfacce del core di Home Assistant,
-    quindi `uuid.getnode()` dà lo stesso valore di bnbees_integration.
+    quindi `uuid.getnode()` dà il MAC dell'host e non quello del container.
     """
     mac = uuid.getnode()
     if (mac >> 40) & 1:
@@ -46,6 +51,14 @@ def host_mac() -> str:
             "Imposta smartgate_serial nella configurazione."
         )
     return ":".join(f"{(mac >> ele) & 0xFF:02x}" for ele in range(40, -1, -8))
+
+
+def default_command_topic(serial: str) -> str:
+    """Topic dei comandi se non configurato: uno per gateway, `ha/cmd/<serial>` (con i due punti, minuscolo).
+
+    RabbitMQ converte `/` in `.`: è la routing key `ha.cmd.<serial>` con cui il Cloud manda i comandi.
+    """
+    return f"ha/cmd/{serial}"
 
 
 def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) -> Settings:
@@ -67,10 +80,13 @@ def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) 
         mqtt_port=int(options.get("mqtt_port", 1883)),
         mqtt_username=options.get("mqtt_username") or None,
         mqtt_password=options.get("mqtt_password") or None,
-        topic=options.get("topic") or "ha.bridge",
+        topic=options.get("topic") or "ha.in",
+        command_topic=(options.get("command_topic") or "").strip() or default_command_topic(serial),
         smartgate_serial=serial,
         heartbeat_interval=int(options.get("heartbeat_interval", 300)),
         send_device_status=bool(options.get("send_device_status", True)),
         log_level=str(options.get("log_level", "info")),
         supervisor_token=token,
+        # BUILD_VERSION (= version di config.yaml) passato dal Supervisor alla build, vedi Dockerfile
+        addon_version=env.get("ADDON_VERSION") or "dev",
     )

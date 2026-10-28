@@ -20,8 +20,8 @@ def test_new_device_porta_dispositivo_ed_entita_senza_modifiche(zha_message, zha
         assert state_obj == states.get(entity["entity_id"])  # stato grezzo di HA (o null)
 
 
-def test_new_device_stesso_dispositivo_ed_entita_dell_integrazione(zha_message, zha_inputs):
-    """Rispetto al messaggio reale dell'integrazione mancano solo i campi che lei calcolava."""
+def test_new_device_stesso_dispositivo_ed_entita_del_messaggio_reale(zha_message, zha_inputs):
+    """Rispetto al messaggio reale mancano solo i campi calcolati."""
     device, entities, states = zha_inputs
     out = json.loads(messages.device_snapshot(device, entities, states, SERIAL))
 
@@ -58,5 +58,29 @@ def test_cambio_di_stato_inoltrato_com_e():
 
 
 def test_heartbeat():
-    out = json.loads(messages.heartbeat(SERIAL))
+    out = json.loads(messages.heartbeat(SERIAL, "0.2.0"))
     assert out["message_type"] == "smartgate_heartbeat" and out["smartgate_serial"] == SERIAL
+    assert out["addon_version"] == "0.2.0"
+
+
+def test_service_call_senza_target_e_data():
+    out = messages.service_call({"domain": "scene", "service": "turn_on"})
+    assert out == {"type": "call_service", "domain": "scene", "service": "turn_on", "service_data": {}}
+
+
+def test_service_call_dalla_busta_usa_params():
+    busta = {"nonce": "n1", "command": "call_service", "version": 1, "params": {"domain": "light", "service": "toggle"}}
+    out = messages.service_call(busta)
+    assert out == {"type": "call_service", "domain": "light", "service": "toggle", "service_data": {}}
+
+
+def test_command_name_busta_e_formato_0_2_0():
+    assert messages.command_name({"nonce": "n", "command": "resync", "version": 1, "params": {}}) == "resync"
+    assert messages.command_name({"domain": "light", "service": "turn_on"}) == "call_service"
+
+
+def test_command_name_rifiuta_un_comando_che_non_e_un_oggetto():
+    import pytest
+
+    with pytest.raises(ValueError):
+        messages.command_name(["light", "turn_on"])
