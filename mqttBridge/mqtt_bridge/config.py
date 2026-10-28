@@ -33,8 +33,8 @@ class Settings:
 
     def __repr__(self) -> str:  # niente password né token nei log
         return (
-            f"Settings(mqtt={self.mqtt_host}:{self.mqtt_port}, topic={self.topic}, "
-            f"commands={self.command_topic}, serial={self.smartgate_serial})"
+            f"Settings(mqtt={self.mqtt_host}:{self.mqtt_port}, user={self.mqtt_username}, topic={self.topic}, "
+            f"commands={self.command_topic}, serial={self.smartgate_serial}, version={self.addon_version})"
         )
 
 
