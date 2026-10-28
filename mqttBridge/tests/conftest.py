@@ -12,7 +12,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.fixture
 def zha_message() -> dict:
-    """Messaggio new_device reale prodotto da bnbees_integration (log del 2026-10-26)."""
+    """Messaggio new_device reale (log del 2026-10-26)."""
     return json.loads((FIXTURES / "new_device_zha.json").read_text(encoding="utf-8"))
 
 

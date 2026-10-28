@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0] - 2026-10-28
+### Aggiunto
+- Comandi dal Cloud su `command_topic` (nuova opzione; vuoto = `ha/cmd/<serial>`, routing key `ha.cmd.<serial>`),
+  nella busta `{"nonce", "command", "version", "params"}`:
+  - `resync`: rimanda tutti i `new_device` e i `new_entity`;
+  - `call_service`: chiama il servizio di Home Assistant con `params` = `{domain, service, target, data}`, così com'è,
+    senza filtri. Senza `command`, `{domain, service, target, data}` è accettato come `call_service`;
+  - un `command` sconosciuto viene scartato e scritto nel log.
+  L'esito torna sul `topic` come `command_result`.
+- `addon_version` nell'heartbeat (`smartgate_heartbeat`).
+### Modificato
+- Topic predefinito `ha.in` (prima `ha.bridge`).
+  Le installazioni esistenti tengono il topic salvato: va cambiato a mano nella configurazione.
+
 ## [0.1.6] - 2026-10-26
 ### Corretto
 - L'invio iniziale (`new_device`, `new_entity`) aspetta la connessione al broker: prima poteva partire con MQTT ancora
@@ -8,7 +22,7 @@
 
 ## [0.1.5] - 2026-10-26
 ### Modificato
-- Topic predefinito `ha.bridge` (prima `sensor.in.31`, dove ascolta BnBees). Consumer: `ha-bridge-consumer`.
+- Topic predefinito `ha.bridge`.
 
 ## [0.1.4] - 2026-10-26
 ### Aggiunto
@@ -21,7 +35,7 @@
 
 ## [0.1.2] - 2026-10-26
 ### Aggiunto
-- Icona e logo microBees (`icon.png`, `logo.png`, gli stessi di swarmPath).
+- Icona e logo (`icon.png`, `logo.png`).
 
 ## [0.1.1] - 2026-10-26
 ### Corretto

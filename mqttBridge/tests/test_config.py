@@ -7,11 +7,11 @@ from mqtt_bridge import config
 
 def _options(tmp_path, **over):
     opts = {
-        "mqtt_host": "test.microbees.com",
+        "mqtt_host": "test.test.com",
         "mqtt_port": 1883,
         "mqtt_username": "u",
         "mqtt_password": "segreta",
-        "topic": "sensor.in.31",
+        "topic": "test.test",
         "smartgate_serial": "",
         "heartbeat_interval": 300,
         "send_device_status": True,
@@ -31,6 +31,23 @@ def test_serial_vuoto_usa_il_mac_dell_host(tmp_path, monkeypatch):
     monkeypatch.setattr(config.uuid, "getnode", lambda: 0x30AE7BEA8680)
     s = config.load_settings(_options(tmp_path), {"SUPERVISOR_TOKEN": "t"})
     assert s.smartgate_serial == "30:ae:7b:ea:86:80"
+
+
+def test_topic_dei_comandi_predefinito_per_gateway(tmp_path):
+    s = config.load_settings(_options(tmp_path, smartgate_serial="AA:BB:CC:DD:EE:FF"), {"SUPERVISOR_TOKEN": "t"})
+    # Con i due punti e in minuscolo: per RabbitMQ è la routing key ha.cmd.aa:bb:cc:dd:ee:ff
+    assert s.command_topic == "ha/cmd/aa:bb:cc:dd:ee:ff"
+
+
+def test_topic_predefinito_e_versione_dell_add_on(tmp_path):
+    s = config.load_settings(_options(tmp_path, topic=""), {"SUPERVISOR_TOKEN": "t", "ADDON_VERSION": "0.2.0"})
+    assert (s.topic, s.addon_version) == ("ha.in", "0.2.0")
+    assert config.load_settings(_options(tmp_path), {"SUPERVISOR_TOKEN": "t"}).addon_version == "dev"
+
+
+def test_topic_dei_comandi_da_configurazione(tmp_path):
+    s = config.load_settings(_options(tmp_path, command_topic="cmd.casa"), {"SUPERVISOR_TOKEN": "t"})
+    assert s.command_topic == "cmd.casa"
 
 
 def test_senza_token_del_supervisor_non_parte(tmp_path):

@@ -1,7 +1,10 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-ENV LANG=C.UTF-8 \
+# Il Supervisor passa la version di config.yaml; finisce in addon_version dell'heartbeat
+ARG BUILD_VERSION=dev
+ENV ADDON_VERSION=$BUILD_VERSION \
+    LANG=C.UTF-8 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 

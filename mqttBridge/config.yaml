@@ -1,8 +1,7 @@
-name: "microBees MQTT Bridge"
-version: "0.1.6"
+name: "MQTT Bridge"
+version: "0.2.0"
 slug: "mqtt_bridge"
-description: "Invia su MQTT verso microBees dispositivi, entità ed eventi di Home Assistant così come sono."
-url: "https://github.com/microBeesTech/ha_addon/tree/main/mqttBridge"
+description: "Invia su MQTT dispositivi, entità ed eventi di Home Assistant così come sono ed esegue i comandi ricevuti."
 arch:
   - aarch64
   - amd64
@@ -12,16 +11,17 @@ arch:
 init: false
 startup: application
 boot: auto
-# Rete dell'host: smartgate_serial = MAC dell'host, come lo calcola bnbees_integration (uuid.getnode)
+# Rete dell'host: smartgate_serial = MAC dell'host, letto con uuid.getnode() sulle interfacce dell'host
 host_network: true
-# Accesso all'API WebSocket di Home Assistant tramite il Supervisor (registri e stati, sola lettura)
+# Accesso all'API WebSocket di Home Assistant tramite il Supervisor (registri, stati ed esecuzione dei comandi ricevuti)
 homeassistant_api: true
 options:
   mqtt_host: ""
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
-  topic: "ha.bridge"
+  topic: "ha.in"
+  command_topic: ""
   smartgate_serial: ""
   heartbeat_interval: 300
   send_device_status: true
@@ -32,6 +32,7 @@ schema:
   mqtt_username: str?
   mqtt_password: password?
   topic: str
+  command_topic: str?
   smartgate_serial: match(^$|^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$)?
   heartbeat_interval: int(30,86400)
   send_device_status: bool

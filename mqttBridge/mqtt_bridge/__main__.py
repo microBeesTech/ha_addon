@@ -34,7 +34,7 @@ async def main() -> None:
     first_connection = True
 
     def on_mqtt_connected() -> None:
-        # Gira nel thread di paho. Come l'integrazione: heartbeat appena connessi; dalla seconda connessione in poi
+        # Gira nel thread di paho. Heartbeat appena connessi; dalla seconda connessione in poi
         # (broker caduto e tornato) si rifà anche l'invio iniziale.
         nonlocal first_connection
         bridge.send_heartbeat()
@@ -49,6 +49,9 @@ async def main() -> None:
         settings.mqtt_password,
         client_id=f"ha-mqtt-bridge-{settings.smartgate_serial.replace(':', '')}",
         on_connected=on_mqtt_connected,
+        command_topic=settings.command_topic,
+        # Gira nel thread di paho: il comando si esegue nel loop asyncio, dove vive la connessione a Home Assistant
+        on_command=lambda payload: asyncio.run_coroutine_threadsafe(bridge.handle_command(payload), loop),
     )
     bridge = Bridge(settings, ha, mqtt)
 

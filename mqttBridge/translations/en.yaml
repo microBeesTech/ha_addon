@@ -1,21 +1,24 @@
 configuration:
   mqtt_host:
     name: MQTT broker
-    description: microBees MQTT broker host (e.g. test.microbees.com).
+    description: MQTT broker host.
   mqtt_port:
     name: Port
     description: Broker port (1883 without TLS).
   mqtt_username:
     name: Username
-    description: "On RabbitMQ use vhost:user, e.g. bnbees:homeassistant."
+    description: "On RabbitMQ use vhost:user."
   mqtt_password:
     name: Password
   topic:
     name: Topic
     description: Topic used for all messages.
+  command_topic:
+    name: Command topic
+    description: Topic the Cloud commands are received on. Empty = ha/cmd/<serial> (with colons, lowercase).
   smartgate_serial:
     name: Gateway serial
-    description: Leave empty to use the host MAC address (same as bnbees_integration). Format aa:bb:cc:dd:ee:ff.
+    description: Leave empty to use the host MAC address. Format aa:bb:cc:dd:ee:ff.
   heartbeat_interval:
     name: Heartbeat interval (seconds)
   send_device_status:

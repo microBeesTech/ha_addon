@@ -5,14 +5,16 @@ import json
 
 from mqtt_bridge.bridge import Bridge
 from mqtt_bridge.config import Settings
+from mqtt_bridge.ha_client import HomeAssistantError
 
-SETTINGS = Settings("h", 1883, None, None, "mio/topic", "30:ae:7b:ea:86:80", 300, True, "info", "t")
+SETTINGS = Settings("h", 1883, None, None, "mio/topic", "mio/comandi", "30:ae:7b:ea:86:80", 300, True, "info", "t")
 HELPER = {"entity_id": "input_boolean.vacanza", "device_id": None}
 
 
 class FakeHA:
     def __init__(self, devices, entities, states):
         self.devices, self.entities, self.states = devices, {e["entity_id"]: e for e in entities}, states
+        self.calls = []
 
     async def command(self, msg):
         kind = msg["type"]
@@ -24,6 +26,11 @@ class FakeHA:
             return {eid: self.entities.get(eid) for eid in msg["entity_ids"]}
         if kind == "get_states":
             return list(self.states.values())
+        if kind == "call_service":
+            self.calls.append(msg)
+            if msg["domain"] is None:
+                raise HomeAssistantError("invalid_format: required key not provided @ data['domain']")
+            return {"context": {"id": "c1", "parent_id": None, "user_id": None}, "response": None}
         raise AssertionError(kind)
 
 
@@ -140,3 +147,78 @@ def test_invio_iniziale_aspetta_il_broker(zha_inputs):
         await asyncio.wait_for(waiting, 1)
 
     asyncio.run(scenario())
+
+
+COMMAND = {
+    "domain": "light",
+    "service": "turn_on",
+    "target": {"entity_id": "light.cucina"},
+    "data": {"brightness": 128},
+}
+
+
+def test_comando_eseguito_su_home_assistant_ed_esito_pubblicato(zha_inputs):
+    bridge, ha, mqtt = _make(zha_inputs)
+
+    asyncio.run(bridge.handle_command(json.dumps(COMMAND).encode()))
+
+    assert ha.calls == [
+        {
+            "type": "call_service",
+            "domain": "light",
+            "service": "turn_on",
+            "target": {"entity_id": "light.cucina"},
+            "service_data": {"brightness": 128},
+        }
+    ]
+    [(topic, out)] = mqtt.sent
+    assert topic == "mio/topic" and out["message_type"] == "command_result"
+    assert out["command"] == COMMAND and out["success"] is True and out["error"] is None
+    assert out["result"]["context"]["id"] == "c1"  # risposta di HA così com'è
+
+
+def test_comando_rifiutato_da_home_assistant_esito_con_errore(zha_inputs):
+    bridge, _, mqtt = _make(zha_inputs)
+
+    asyncio.run(bridge.handle_command(b'{"service": "turn_on"}'))
+
+    [(_, out)] = mqtt.sent
+    assert out["success"] is False and "invalid_format" in out["error"]
+    assert out["command"] == {"service": "turn_on"}
+
+
+def test_comando_non_json_esito_con_il_testo_ricevuto(zha_inputs):
+    bridge, ha, mqtt = _make(zha_inputs)
+
+    asyncio.run(bridge.handle_command(b"accendi"))
+
+    [(_, out)] = mqtt.sent
+    assert out["success"] is False and out["command"] == "accendi" and ha.calls == []
+
+
+def test_resync_rimanda_la_fotografia_completa(zha_inputs):
+    bridge, _, mqtt = _make(zha_inputs, extra_entities=[HELPER])
+    busta = {"nonce": "8f0c", "command": "resync", "version": 1, "params": {}}
+
+    asyncio.run(bridge.handle_command(json.dumps(busta).encode()))
+
+    assert [m["message_type"] for _, m in mqtt.sent] == ["new_device", "new_entity", "command_result"]
+    assert mqtt.sent[-1][1]["command"] == busta and mqtt.sent[-1][1]["success"] is True
+
+
+def test_call_service_nella_busta(zha_inputs):
+    bridge, ha, mqtt = _make(zha_inputs)
+    busta = {"nonce": "n2", "command": "call_service", "version": 1, "params": COMMAND}
+
+    asyncio.run(bridge.handle_command(json.dumps(busta).encode()))
+
+    assert ha.calls[0]["domain"] == "light" and ha.calls[0]["service_data"] == {"brightness": 128}
+    assert mqtt.sent[0][1]["command"] == busta and mqtt.sent[0][1]["success"] is True
+
+
+def test_comando_sconosciuto_scartato_senza_eseguire_niente(zha_inputs):
+    bridge, ha, mqtt = _make(zha_inputs)
+
+    asyncio.run(bridge.handle_command(b'{"nonce": "n3", "command": "reboot", "version": 1, "params": {}}'))
+
+    assert ha.calls == [] and mqtt.sent == []
