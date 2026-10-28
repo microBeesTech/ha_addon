@@ -26,6 +26,9 @@ class FakeHA:
             return {eid: self.entities.get(eid) for eid in msg["entity_ids"]}
         if kind == "get_states":
             return list(self.states.values())
+        if kind in ("config/device_registry/update", "config/entity_registry/update"):
+            self.calls.append(msg)
+            return {"updated": True}
         if kind == "call_service":
             self.calls.append(msg)
             if msg["domain"] is None:
@@ -216,9 +219,42 @@ def test_call_service_nella_busta(zha_inputs):
     assert mqtt.sent[0][1]["command"] == busta and mqtt.sent[0][1]["success"] is True
 
 
-def test_comando_sconosciuto_scartato_senza_eseguire_niente(zha_inputs):
+def test_comando_sconosciuto_non_eseguito_esito_unsupported(zha_inputs):
+    bridge, ha, mqtt = _make(zha_inputs)
+    busta = {"nonce": "n3", "command": "reboot", "version": 1, "params": {}}
+
+    asyncio.run(bridge.handle_command(json.dumps(busta).encode()))
+
+    assert ha.calls == []
+    [(_, out)] = mqtt.sent
+    assert out["message_type"] == "command_result" and out["command"] == busta
+    assert out["success"] is False and out["error"] == "unsupported: reboot"
+
+
+def test_registry_update_rinomina_il_dispositivo(zha_inputs):
+    bridge, ha, mqtt = _make(zha_inputs)
+    params = {"registry": "device", "device_id": "d1", "name_by_user": "Cucina"}
+    busta = {"nonce": "n4", "command": "registry_update", "version": 1, "params": params}
+
+    asyncio.run(bridge.handle_command(json.dumps(busta).encode()))
+
+    assert ha.calls == [{"type": "config/device_registry/update", "device_id": "d1", "name_by_user": "Cucina"}]
+    assert mqtt.sent[0][1]["success"] is True and mqtt.sent[0][1]["command"] == busta
+
+
+def test_registry_update_rinomina_l_entita(zha_inputs):
+    bridge, ha, _ = _make(zha_inputs)
+    params = {"registry": "entity", "entity_id": "light.cucina", "name": "Luce cucina"}
+
+    asyncio.run(bridge.handle_command(json.dumps({"command": "registry_update", "params": params}).encode()))
+
+    assert ha.calls == [{"type": "config/entity_registry/update", "entity_id": "light.cucina", "name": "Luce cucina"}]
+
+
+def test_registry_update_con_registro_sconosciuto_esito_con_errore(zha_inputs):
     bridge, ha, mqtt = _make(zha_inputs)
 
-    asyncio.run(bridge.handle_command(b'{"nonce": "n3", "command": "reboot", "version": 1, "params": {}}'))
+    asyncio.run(bridge.handle_command(b'{"command": "registry_update", "params": {"registry": "area", "name": "x"}}'))
 
-    assert ha.calls == [] and mqtt.sent == []
+    assert ha.calls == []
+    assert mqtt.sent[0][1]["success"] is False and "registry" in mqtt.sent[0][1]["error"]

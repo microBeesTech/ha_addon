@@ -41,7 +41,7 @@ def test_topic_dei_comandi_predefinito_per_gateway(tmp_path):
 
 def test_topic_predefinito_e_versione_dell_add_on(tmp_path):
     s = config.load_settings(_options(tmp_path, topic=""), {"SUPERVISOR_TOKEN": "t", "ADDON_VERSION": "0.2.0"})
-    assert (s.topic, s.addon_version) == ("ha.in", "0.2.0")
+    assert (s.topic, s.addon_version) == ("ha/in", "0.2.0")
     assert config.load_settings(_options(tmp_path), {"SUPERVISOR_TOKEN": "t"}).addon_version == "dev"
 
 
