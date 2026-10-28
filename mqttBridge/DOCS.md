@@ -94,6 +94,10 @@ QoS 0): mentre è disconnesso il broker non tiene la sua coda, quindi un comando
   rifatto a ogni riconnessione; gli eventi arrivati mentre il broker non era raggiungibile sono scartati (log WARNING).
 - **Utente MQTT su RabbitMQ**: il plugin MQTT ricava il vhost dal nome utente, `vhost:utente` (es. `vhost:homeassistant`).
   Senza prefisso i messaggi finiscono nel vhost predefinito `/`.
+- **Log di connessione** (livello `info`, senza i messaggi): utente, vhost, `client_id`, topic con la routing key AMQP
+  (`ha/in` → `ha.in`), coda RabbitMQ delle iscrizioni (`mqtt-subscription-<client_id>qos0`) ed esito
+  dell'iscrizione confermato dal broker, primo messaggio pubblicato su ogni topic. Servono a ritrovare connessione e
+  coda nella console di RabbitMQ.
 - **Serial del gateway**: `host_network: true`, quindi `uuid.getnode()` vede le interfacce dell'host come il core di HA.
   Se il MAC non è leggibile il log lo segnala: impostare `smartgate_serial`.
 

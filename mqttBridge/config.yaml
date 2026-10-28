@@ -1,5 +1,5 @@
 name: "MQTT Bridge"
-version: "0.3.0"
+version: "0.3.1"
 slug: "mqtt_bridge"
 description: "Invia su MQTT dispositivi, entità ed eventi di Home Assistant così come sono ed esegue i comandi ricevuti."
 arch:

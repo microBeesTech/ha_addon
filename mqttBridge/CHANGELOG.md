@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1] - 2026-10-28
+### Aggiunto
+- Log INFO della connessione MQTT per capire dove arrivano i messaggi su RabbitMQ: all'avvio utente e versione; alla
+  connessione utente, vhost (ricavato da `vhost:utente`, altrimenti quello predefinito del broker), `client_id` e
+  sessione; all'iscrizione topic, routing key AMQP, nome della coda RabbitMQ (`mqtt-subscription-<client_id>qos0`) e
+  l'esito confermato dal broker; al primo messaggio pubblicato su ogni topic la routing key AMQP e il vhost. In caso di
+  connessione o iscrizione rifiutata, l'errore con utente, vhost e `client_id`. Mai la password.
+
 ## [0.3.0] - 2026-10-28
 ### Aggiunto
 - Comando `registry_update`: rinomina dall'app verso Home Assistant. `params.registry` = `device`
