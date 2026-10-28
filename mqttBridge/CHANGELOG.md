@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] - 2026-10-28
+### Aggiunto
+- Comando `registry_update`: rinomina dall'app verso Home Assistant. `params.registry` = `device`
+  (`config/device_registry/update`, es. `device_id` + `name_by_user`) o `entity` (`config/entity_registry/update`,
+  es. `entity_id` + `name`); gli altri campi di `params` passano così come sono. Esito in `command_result`.
+### Modificato
+- Un `command` sconosciuto ora riceve un `command_result` con `success: false` ed `error: "unsupported: <command>"`
+  (prima solo il log), così il Cloud chiude il comando.
+### Corretto
+- Topic predefinito `ha/in` (prima `ha.in`): RabbitMQ converte `/` in `.`, quindi `ha/in` è la routing key `ha.in` che
+  ascolta il Cloud, mentre `ha.in` diventava `ha/in` e i messaggi non arrivavano. **Le installazioni esistenti tengono
+  il topic salvato: va cambiato a mano in `ha/in`.**
+
 ## [0.2.0] - 2026-10-28
 ### Aggiunto
 - Comandi dal Cloud su `command_topic` (nuova opzione; vuoto = `ha/cmd/<serial>`, routing key `ha.cmd.<serial>`),

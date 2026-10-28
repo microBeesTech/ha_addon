@@ -9,7 +9,8 @@ Fonti (API WebSocket di Home Assistant):
 - stato       = `get_states` / evento `state_changed` → `State.as_dict()`
 - eventi      = `device_registry_updated`, `entity_registry_updated`, `state_changed` (evento completo)
 - comandi     = busta `{"nonce", "command", "version", "params"}`: `resync` → di nuovo l'invio iniziale,
-                `call_service` → `call_service` con `params` = `{domain, service, target, data}`
+                `call_service` → `call_service` con `params` = `{domain, service, target, data}`,
+                `registry_update` → `config/<registry>_registry/update` con i campi di `params`
 """
 
 from __future__ import annotations
@@ -118,6 +119,21 @@ def service_call(command: dict[str, Any]) -> dict[str, Any]:
     if "target" in params:
         message["target"] = params["target"]
     return message
+
+
+def registry_update(command: dict[str, Any]) -> dict[str, Any]:
+    """Comando `registry_update` → `config/device_registry/update` o `config/entity_registry/update` dell'API WebSocket.
+
+    `params.registry` (`device` o `entity`) sceglie il registro; gli altri campi di `params` passano così come sono
+    (es. `device_id` + `name_by_user`, `entity_id` + `name`): la validazione la fa Home Assistant.
+    """
+    params = command.get("params")
+    if not isinstance(params, dict):
+        raise ValueError("params deve essere un oggetto JSON")
+    registry = params.get("registry")
+    if registry not in ("device", "entity"):
+        raise ValueError(f"registry deve essere device o entity, non {registry!r}")
+    return {"type": f"config/{registry}_registry/update", **{k: v for k, v in params.items() if k != "registry"}}
 
 
 def command_result(command: Any, result: Any, error: str | None, smartgate_serial: str) -> str:

@@ -1,5 +1,5 @@
 name: "MQTT Bridge"
-version: "0.2.0"
+version: "0.3.0"
 slug: "mqtt_bridge"
 description: "Invia su MQTT dispositivi, entità ed eventi di Home Assistant così come sono ed esegue i comandi ricevuti."
 arch:
@@ -20,7 +20,7 @@ options:
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
-  topic: "ha.in"
+  topic: "ha/in"
   command_topic: ""
   smartgate_serial: ""
   heartbeat_interval: 300

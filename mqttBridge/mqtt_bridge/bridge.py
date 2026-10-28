@@ -7,7 +7,7 @@
 4. ogni evento `state_changed` → il messaggio con l'evento (se `send_device_status` è attivo);
 5. heartbeat periodico;
 6. ogni comando ricevuto su `command_topic` (`resync` → di nuovo il punto 1; `call_service` → servizio di Home
-   Assistant) e un `command_result` con l'esito.
+   Assistant; `registry_update` → rinomina nel registro di Home Assistant) e un `command_result` con l'esito.
 
 Nessun filtro, nessuna attesa, nessun valore ricavato: ogni evento diventa un messaggio, il consumer decide.
 """
@@ -124,7 +124,7 @@ class Bridge:
     async def handle_command(self, payload: bytes) -> None:
         """Esegue un comando ricevuto e pubblica l'esito, senza filtri sul servizio chiamato.
 
-        Un `command` sconosciuto non esegue niente e non ha esito: solo il log.
+        Un `command` sconosciuto non esegue niente: `command_result` con errore `unsupported` (Q20) e il log.
         """
         command: Any = payload.decode("utf-8", errors="replace")  # se non è JSON l'esito riporta il testo ricevuto
         try:
@@ -135,8 +135,13 @@ class Bridge:
                 result = None
             elif name == "call_service":
                 result = await self._ha.command(messages.service_call(command))
+            elif name == "registry_update":
+                result = await self._ha.command(messages.registry_update(command))
             else:
                 _LOGGER.warning("Comando sconosciuto scartato: %r", name)
+                self._publish(
+                    messages.command_result(command, None, f"unsupported: {name}", self._settings.smartgate_serial)
+                )
                 return
         except Exception as err:
             _LOGGER.warning("Comando non eseguito: %s", err)

@@ -80,7 +80,8 @@ def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) 
         mqtt_port=int(options.get("mqtt_port", 1883)),
         mqtt_username=options.get("mqtt_username") or None,
         mqtt_password=options.get("mqtt_password") or None,
-        topic=options.get("topic") or "ha.in",
+        # "ha/in": RabbitMQ converte "/" in "." -> routing key ha.in (un "ha.in" diventerebbe ha/in)
+        topic=options.get("topic") or "ha/in",
         command_topic=(options.get("command_topic") or "").strip() or default_command_topic(serial),
         smartgate_serial=serial,
         heartbeat_interval=int(options.get("heartbeat_interval", 300)),

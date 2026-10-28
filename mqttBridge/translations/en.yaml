@@ -12,7 +12,7 @@ configuration:
     name: Password
   topic:
     name: Topic
-    description: Topic used for all messages.
+    description: Topic used for all messages, with slashes (ha/in = routing key ha.in).
   command_topic:
     name: Command topic
     description: Topic the Cloud commands are received on. Empty = ha/cmd/<serial> (with colons, lowercase).

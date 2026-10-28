@@ -12,7 +12,7 @@ configuration:
     name: Password
   topic:
     name: Topic
-    description: Topic su cui pubblicare tutti i messaggi.
+    description: Topic su cui pubblicare tutti i messaggi, con la barra (ha/in = routing key ha.in).
   command_topic:
     name: Topic dei comandi
     description: Topic da cui ricevere i comandi del Cloud. Vuoto = ha/cmd/<serial> (con i due punti, minuscolo).
