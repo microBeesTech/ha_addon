@@ -9,6 +9,7 @@ from mqtt_bridge.ha_client import HomeAssistantError
 
 SETTINGS = Settings("h", 1883, None, None, "mio/topic", "mio/comandi", "30:ae:7b:ea:86:80", 300, True, "info", "t")
 HELPER = {"entity_id": "input_boolean.vacanza", "device_id": None}
+UNIT_SYSTEM = {"length": "km", "mass": "g", "temperature": "°C", "volume": "L"}
 
 
 class FakeHA:
@@ -18,6 +19,8 @@ class FakeHA:
 
     async def command(self, msg):
         kind = msg["type"]
+        if kind == "get_config":
+            return {"unit_system": UNIT_SYSTEM, "time_zone": "Europe/Rome"}
         if kind == "config/device_registry/list":
             return self.devices
         if kind == "config/entity_registry/list":
@@ -258,3 +261,17 @@ def test_registry_update_con_registro_sconosciuto_esito_con_errore(zha_inputs):
 
     assert ha.calls == []
     assert mqtt.sent[0][1]["success"] is False and "registry" in mqtt.sent[0][1]["error"]
+
+
+def test_unit_system_di_get_config_negli_invii_e_nell_heartbeat(zha_inputs):
+    """Le entità climate non dicono l'unità delle temperature: arriva il unit_system dell'installazione."""
+    bridge, _, mqtt = _make(zha_inputs, extra_entities=[HELPER])
+
+    bridge.send_heartbeat()
+    asyncio.run(bridge.full_sync())
+    bridge.send_heartbeat()
+
+    sent = [m for _, m in mqtt.sent]
+    assert sent[0]["message_type"] == "smartgate_heartbeat" and sent[0]["unit_system"] is None
+    assert all(m["unit_system"] == UNIT_SYSTEM for m in sent[1:])
+    assert {m["message_type"] for m in sent[1:]} == {"new_device", "new_entity", "smartgate_heartbeat"}

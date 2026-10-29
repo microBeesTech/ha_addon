@@ -58,9 +58,11 @@ def test_cambio_di_stato_inoltrato_com_e():
 
 
 def test_heartbeat():
-    out = json.loads(messages.heartbeat(SERIAL, "0.2.0"))
+    out = json.loads(messages.heartbeat(SERIAL, "0.2.0", {"temperature": "°F"}))
     assert out["message_type"] == "smartgate_heartbeat" and out["smartgate_serial"] == SERIAL
     assert out["addon_version"] == "0.2.0"
+    assert out["unit_system"] == {"temperature": "°F"}
+    assert json.loads(messages.heartbeat(SERIAL, "0.2.0"))["unit_system"] is None
 
 
 def test_service_call_senza_target_e_data():

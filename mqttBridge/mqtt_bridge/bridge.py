@@ -1,7 +1,8 @@
 """Lettura da Home Assistant e invio su MQTT, senza logica sui dati.
 
 1. all'avvio (e a ogni riconnessione con Home Assistant): un `new_device` per ogni dispositivo del registro e un
-   `new_entity` per ogni entità senza dispositivo (helper, `sun`, `person`, automazioni…);
+   `new_entity` per ogni entità senza dispositivo (helper, `sun`, `person`, automazioni…), con il `unit_system` di
+   `get_config` (anche nell'heartbeat);
 2. ogni evento `device_registry_updated` → il messaggio con l'evento e il dispositivo com'è ora;
 3. ogni evento `entity_registry_updated` → il messaggio con l'evento e l'entità com'è ora;
 4. ogni evento `state_changed` → il messaggio con l'evento (se `send_device_status` è attivo);
@@ -34,6 +35,8 @@ class Bridge:
         self._settings = settings
         self._ha = ha
         self._mqtt = mqtt
+        # unit_system di get_config, letto a ogni invio iniziale (cambia solo dalle impostazioni di Home Assistant)
+        self._unit_system: dict[str, Any] | None = None
 
     # ------------------------------------------------------------------ ciclo principale ---
 
@@ -71,7 +74,9 @@ class Bridge:
             self.send_heartbeat()
 
     def send_heartbeat(self) -> None:
-        self._publish(messages.heartbeat(self._settings.smartgate_serial, self._settings.addon_version))
+        self._publish(
+            messages.heartbeat(self._settings.smartgate_serial, self._settings.addon_version, self._unit_system)
+        )
 
     # ---------------------------------------------------------------------- invio iniziale ---
 
@@ -84,6 +89,8 @@ class Bridge:
             _LOGGER.warning("Nuovo invio iniziale dopo la riconnessione MQTT non riuscito: %s", err)
 
     async def full_sync(self) -> None:
+        config = await self._ha.command({"type": "get_config"})
+        self._unit_system = (config or {}).get("unit_system")
         devices = await self._ha.command({"type": "config/device_registry/list"})
         registry = await self._ha.command({"type": "config/entity_registry/list"})
         entities = await self._entities([e["entity_id"] for e in registry])
@@ -96,11 +103,11 @@ class Bridge:
         for device in devices:
             self._publish(
                 messages.device_snapshot(
-                    device, by_device.get(device["id"], []), states, self._settings.smartgate_serial
+                    device, by_device.get(device["id"], []), states, self._settings.smartgate_serial, self._unit_system
                 )
             )
         for entity in by_device.get(None, []):
-            self._publish(messages.entity_snapshot(entity, states, self._settings.smartgate_serial))
+            self._publish(messages.entity_snapshot(entity, states, self._settings.smartgate_serial, self._unit_system))
         _LOGGER.info("Invio iniziale: %s dispositivi, %s entità", len(devices), len(entities))
 
     # ------------------------------------------------------------------------------ eventi ---

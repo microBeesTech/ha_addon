@@ -27,12 +27,12 @@ Ogni messaggio ha `message_type`, `smartgate_serial` e `timestamp` (ms).
 
 | Quando | `message_type` | Contenuto |
 |---|---|---|
-| Avvio e ogni riconnessione con Home Assistant | `new_device` | Un messaggio per **ogni** dispositivo: `DeviceEntry.dict_repr` + `entities` (ciascuna `RegistryEntry.extended_dict` + `state_obj` = stato di HA com'è, null se assente) |
-| Avvio e ogni riconnessione: ogni entità senza dispositivo | `new_entity` | `RegistryEntry.extended_dict` + `state_obj` (stato di HA com'è, null se assente) |
+| Avvio e ogni riconnessione con Home Assistant | `new_device` | Un messaggio per **ogni** dispositivo: `DeviceEntry.dict_repr` + `entities` (ciascuna `RegistryEntry.extended_dict` + `state_obj` = stato di HA com'è, null se assente) + `unit_system` |
+| Avvio e ogni riconnessione: ogni entità senza dispositivo | `new_entity` | `RegistryEntry.extended_dict` + `state_obj` (stato di HA com'è, null se assente) + `unit_system` |
 | Evento `device_registry_updated` (create, update, remove) | `device_registry_updated` | `event` = evento di HA com'è; `device` = dispositivo com'è ora (null se rimosso) |
 | Evento `entity_registry_updated` (create, update, remove) | `entity_registry_updated` | `event` = evento di HA com'è; `entity` = entità com'è ora (null se rimossa) |
 | Evento `state_changed` | `state_changed` | `event` = evento di HA com'è (`old_state`, `new_state` completi) |
-| Connessione al broker e ogni `heartbeat_interval` | `smartgate_heartbeat` | `addon_version` = versione dell'add-on (`version` di `config.yaml`; `dev` nelle build locali) |
+| Connessione al broker e ogni `heartbeat_interval` | `smartgate_heartbeat` | `addon_version` = versione dell'add-on (`version` di `config.yaml`; `dev` nelle build locali); `unit_system` = unità dell'installazione da `get_config` (null finché non è stato letto all'invio iniziale) |
 | Dopo ogni comando ricevuto | `command_result` | `command` = comando ricevuto com'è, `nonce` compreso (il testo, se non è JSON); `success`; `result` = risposta di HA com'è (`context`, `response`; null per `resync`); `error` = errore di HA o di lettura del comando (null se riuscito) |
 
 Nessun campo calcolato: i valori derivati si ricavano nel consumer (es. `domain` = prima parte di `entity_id`,

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - 2026-10-29
+### Aggiunto
+- `unit_system` di Home Assistant (`get_config`: temperatura, lunghezza, massa, volume...) così com'è in `new_device`,
+  `new_entity` e `smartgate_heartbeat` (null nell'heartbeat finché non è stato letto). Le entità `climate` non
+  dicono in che unità sono `temperature`, `current_temperature`, `min_temp` e `max_temp`: sono nell'unità
+  dell'installazione, e al Cloud serve per mostrarla nell'app. Letto a ogni invio iniziale.
+
 ## [0.3.2] - 2026-10-28
 ### Corretto
 - Gli eventi `device_registry_updated` ed `entity_registry_updated` si bloccavano fino al `TimeoutError` (60 s): la
