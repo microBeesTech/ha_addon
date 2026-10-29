@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2] - 2026-10-28
+### Corretto
+- Gli eventi `device_registry_updated` ed `entity_registry_updated` si bloccavano fino al `TimeoutError` (60 s): la
+  callback aspettava la risposta a un comando, ma la risposta la doveva leggere proprio il task fermo sulla callback.
+  Nel frattempo non si leggeva più niente, Home Assistant chiudeva la connessione e le richieste rimaste in attesa
+  finivano in decine di `Future exception was never retrieved`. Ora gli eventi li gestisce un task separato, in ordine,
+  e la lettura non si ferma mai. Un comando scaduto non resta più tra quelli in attesa.
+
 ## [0.3.1] - 2026-10-28
 ### Aggiunto
 - Log INFO della connessione MQTT per capire dove arrivano i messaggi su RabbitMQ: all'avvio utente e versione; alla
