@@ -8,6 +8,8 @@ Fonti (API WebSocket di Home Assistant):
 - entità      = `config/entity_registry/get_entries` → `RegistryEntry.extended_dict`
 - stato       = `get_states` / evento `state_changed` → `State.as_dict()`
 - eventi      = `device_registry_updated`, `entity_registry_updated`, `state_changed` (evento completo)
+- unità       = `get_config` → `unit_system` (temperatura, lunghezza...) dell'installazione, così com'è: le entità
+                climate non dicono in che unità sono le loro temperature
 - comandi     = busta `{"nonce", "command", "version", "params"}`: `resync` → di nuovo l'invio iniziale,
                 `call_service` → `call_service` con `params` = `{domain, service, target, data}`,
                 `registry_update` → `config/<registry>_registry/update` con i campi di `params`
@@ -29,27 +31,37 @@ def device_snapshot(
     entities: list[dict[str, Any]],
     states: dict[str, dict[str, Any]],
     smartgate_serial: str,
+    unit_system: dict[str, Any] | None = None,
 ) -> str:
-    """`new_device`: il dispositivo, le sue entità e per ciascuna lo stato attuale (`state_obj`, null se assente)."""
+    """`new_device`: il dispositivo, le sue entità e per ciascuna lo stato attuale (`state_obj`, null se assente),
+    con il `unit_system` dell'installazione."""
     return json.dumps(
         {
             **device,
             "message_type": "new_device",
             "smartgate_serial": smartgate_serial,
             "timestamp": now_ms(),
+            "unit_system": unit_system,
             "entities": [{**entity, "state_obj": states.get(entity["entity_id"])} for entity in entities],
         }
     )
 
 
-def entity_snapshot(entity: dict[str, Any], states: dict[str, dict[str, Any]], smartgate_serial: str) -> str:
-    """`new_entity`: un'entità senza dispositivo e il suo stato attuale (`state_obj`, null se assente)."""
+def entity_snapshot(
+    entity: dict[str, Any],
+    states: dict[str, dict[str, Any]],
+    smartgate_serial: str,
+    unit_system: dict[str, Any] | None = None,
+) -> str:
+    """`new_entity`: un'entità senza dispositivo e il suo stato attuale (`state_obj`, null se assente), con il
+    `unit_system` dell'installazione."""
     return json.dumps(
         {
             **entity,
             "message_type": "new_entity",
             "smartgate_serial": smartgate_serial,
             "timestamp": now_ms(),
+            "unit_system": unit_system,
             "state_obj": states.get(entity["entity_id"]),
         }
     )
@@ -81,14 +93,16 @@ def state_event(event: dict[str, Any], smartgate_serial: str) -> str:
     )
 
 
-def heartbeat(smartgate_serial: str, addon_version: str) -> str:
-    """`smartgate_heartbeat`: il gateway è vivo, con la versione dell'add-on."""
+def heartbeat(smartgate_serial: str, addon_version: str, unit_system: dict[str, Any] | None = None) -> str:
+    """`smartgate_heartbeat`: il gateway è vivo, con la versione dell'add-on e il `unit_system` dell'installazione
+    (null finché non è stato letto)."""
     return json.dumps(
         {
             "message_type": "smartgate_heartbeat",
             "smartgate_serial": smartgate_serial,
             "timestamp": now_ms(),
             "addon_version": addon_version,
+            "unit_system": unit_system,
         }
     )
 
