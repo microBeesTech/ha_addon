@@ -23,7 +23,7 @@ from typing import Any
 from . import messages
 from .config import Settings
 from .ha_client import HomeAssistantClient
-from .publisher import MqttPublisher
+from .publisher import MqttCommandSubscriptionError, MqttPublisher
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,14 +51,19 @@ class Bridge:
                 await self._ha.subscribe("entity_registry_updated", self._on_entity_registry_updated)
                 if self._settings.send_device_status:
                     await self._ha.subscribe("state_changed", self._on_state_changed)
-                # L'invio iniziale parte solo con il broker connesso, altrimenti i messaggi andrebbero persi
-                await self._mqtt.wait_connected()
+                # L'invio iniziale parte solo con il broker connesso e i comandi sottoscritti:
+                # altrimenti il Cloud crederebbe il gateway operativo senza poter inviare comandi.
+                await self._mqtt.wait_ready()
                 await self.full_sync()
                 delay = 1
                 await reader
                 _LOGGER.warning("Connessione con Home Assistant chiusa, riconnessione")
             except asyncio.CancelledError:
                 raise
+            except MqttCommandSubscriptionError as err:
+                _LOGGER.warning(
+                    "Sottoscrizione comandi non confermata (%s), nuovo tentativo tra %ss", err, delay
+                )
             except Exception as err:
                 _LOGGER.warning("Home Assistant non raggiungibile (%s), nuovo tentativo tra %ss", err, delay)
             finally:

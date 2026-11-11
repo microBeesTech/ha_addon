@@ -10,6 +10,15 @@ configuration:
     description: "On RabbitMQ use vhost:user."
   mqtt_password:
     name: Password
+  mqtt_password_file:
+    name: Bootstrap password file
+    description: "Absolute path to a file containing the password, used when Password is empty. Do not put secrets in the options."
+  mqtt_tls_port:
+    name: Operational mTLS port
+    description: "Broker port for the operational client-certificate connection (default 8884)."
+  mqtt_tls_ca_file:
+    name: Operational broker TLS CA
+    description: "Path to the CA that signs the broker server certificate. Empty = /ssl/broker-ca.crt."
   topic:
     name: Topic
     description: Topic used for all messages, with slashes (ha/in = routing key ha.in).
@@ -27,3 +36,45 @@ configuration:
   log_level:
     name: Logs
     description: "off = no logs; error, warning, info = from least to most detailed; debug = also every JSON sent, in full."
+  provisioning_mode:
+    name: Access mode
+    description: "manual = MQTT credentials configured here; provisioned = persistent identity, certificate and operational mTLS connection."
+  provisioning_ca_file:
+    name: Provisioning public CA
+    description: "Path to the public CA used to verify the issued certificate. Empty = certificate cannot be verified."
+  provisioning_common_name:
+    name: Expected certificate CN
+    description: "Empty = gateBee_<compact serial>. The operational CN is set by the backend."
+  provisioning_bootstrap_dedicated:
+    name: Dedicated bootstrap configuration
+    description: "When enabled, requires a separate host, username and password file; operational credentials are not used."
+  provisioning_bootstrap_host:
+    name: Bootstrap host
+    description: "Broker host for provisioning. Required when dedicated configuration is enabled."
+  provisioning_bootstrap_username:
+    name: Bootstrap username
+    description: "User with minimal access to the provisioning vhost."
+  provisioning_bootstrap_password_file:
+    name: Dedicated bootstrap password file
+    description: "Absolute path to the password file readable by the add-on."
+  provisioning_bootstrap_port:
+    name: MQTT TLS bootstrap port
+    description: "Broker port for the provisioning channel (default 8883)."
+  provisioning_bootstrap_ca_file:
+    name: Broker TLS CA for bootstrap
+    description: "Path to the public CA that signs the broker server certificate. Empty = system roots."
+  provisioning_allow_legacy_ca:
+    name: Allow legacy CA (lab only)
+    description: "Relaxes only the X.509 profile; chain, hostname and dates remain verified. Requires an explicit CA file."
+  provisioning_request_topic:
+    name: Provisioning request topic
+    description: "Default ha/provisioning/requests."
+  provisioning_reply_prefix:
+    name: Reply topic prefix
+    description: "Default ha/provisioning/replies/; the request_id is appended."
+  provisioning_timeout:
+    name: Provisioning timeout (seconds)
+    description: "Timeout for connection, subscription and reply."
+  provisioning_reset_identity:
+    name: Reset identity (one-shot)
+    description: "When true, removes /data/provisioning and creates a new identity; options, Cloud and broker are untouched. Set it back to false after the reset."

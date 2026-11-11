@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.1] - 2026-11-06
+### Aggiunto
+- Identità persistente del gateway (`provisioning_mode: provisioned`): chiave EC P-256 in PKCS8, CSR, `request_id`,
+  stato e certificato/chain in `/data/provisioning`, con scritture atomiche e permessi minimi.
+- Verifica del certificato emesso: catena verso la CA pubblica configurata, validità, CN atteso, corrispondenza con la
+  chiave privata, `clientAuth` e non-CA.
+- Stati `pending`, `certificate_received`, `operational`, `rejected`, `invalid_identity`, `expired`; nessun rinnovo
+  automatico e nessun ripiego sulle credenziali MQTT manuali.
+- Opzioni `provisioning_mode`, `provisioning_ca_file`, `provisioning_common_name`; dipendenza `cryptography`.
+- M2: client bootstrap MQTT TLS che invia il CSR su `ha/provisioning/requests`, riceve la risposta correlata,
+  salva il certificato verificato e ritenta con lo stesso `request_id`. Opzioni per porta bootstrap, CA TLS del
+  broker, timeout e prefissi dei topic; `allow_legacy_ca` solo laboratorio e con CA esplicita.
+- M4: connessione operativa mTLS su 8884 con certificato/key persistenti, pubblicazione `ha/in` e sottoscrizione
+  `ha/cmd/<serial>`; nessun fallback a password.
+- Gating comandi: il bridge non pubblica inventario finché il broker non conferma il SUBACK della sottoscrizione;
+  un SUBACK rifiutato forza la riconnessione.
+- `mqtt_password_file`: password bootstrap letta da file esterno, senza inserirla nelle opzioni o nell'immagine.
+- `provisioning_reset_identity`: reset una-tantum di `/data/provisioning` senza disinstallare l'add-on.
+- Configurazione bootstrap dedicata: host, utente e file password separati dal collegamento operativo, senza ripiego sulle credenziali legacy quando abilitata.
+### Compatibilità
+- La modalità predefinita resta `manual`; il provisioning si attiva esplicitamente con `provisioning_mode: provisioned`.
+- Nome e slug del prodotto invariati. La versione passa da `0.4.0` a `0.4.1`; i riferimenti M2/M4 descrivono le fasi del lavoro, non versioni da installare.
+- Conservare i dati persistenti durante l’aggiornamento; non è richiesto un reset dell’identità.
+
 ## [0.4.0] - 2026-10-29
 ### Aggiunto
 - `unit_system` di Home Assistant (`get_config`: temperatura, lunghezza, massa, volume...) così com'è in `new_device`,
