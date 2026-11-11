@@ -216,6 +216,14 @@ class MqttPublisher:
         if self._on_connected:
             self._on_connected()
 
+    def _handle_subscribe(self, client, userdata, mid, reason_code_list, properties) -> None:
+        topic = self._subscriptions.pop(mid, None)
+        for rc in reason_code_list:
+            if getattr(rc, "is_failure", False):
+                _LOGGER.error("Iscrizione a %s rifiutata dal broker: %s (permessi di lettura dell'utente)", topic, rc)
+            else:
+                _LOGGER.info("Iscrizione a %s confermata dal broker: %s", topic, rc)
+
     def _handle_message(self, client, userdata, message) -> None:
         _LOGGER.debug("MQTT ← %s %s", message.topic, message.payload.decode("utf-8", errors="replace"))
         if self._on_command:

@@ -63,9 +63,9 @@ class Settings:
         port = self.mqtt_tls_port if provisioned else self.mqtt_port
         user = "mTLS" if provisioned else self.mqtt_username
         return (
-            f"Settings(mqtt={self.mqtt_host}:{port}, user={user}, topic={self.topic}, "
+            f"Settings(mqtt={self.mqtt_host}:{port}, user={user}, user={self.mqtt_username}, topic={self.topic}, "
             f"commands={self.command_topic}, serial={self.smartgate_serial}, version={self.addon_version}, "
-            f"provisioning={self.provisioning_mode})"
+            f"provisioning={self.provisioning_mode}, version={self.addon_version})"
         )
 
 
