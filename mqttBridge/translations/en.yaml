@@ -1,4 +1,7 @@
 configuration:
+  led_status:
+    name: LED indicators
+    description: "Show startup, provisioning, and connection status on the DSGW ring. Has no effect when the hardware is absent."
   mqtt_host:
     name: MQTT broker
     description: MQTT broker host.
@@ -18,7 +21,7 @@ configuration:
     description: "Broker port for the operational client-certificate connection (default 8884)."
   mqtt_tls_ca_file:
     name: Operational broker TLS CA
-    description: "Path to the CA that signs the broker server certificate. Empty = /ssl/broker-ca.crt."
+    description: "Path to the public CA file under /ssl that signs the broker server certificate. Default: /ssl/broker-ca.crt."
   topic:
     name: Topic
     description: Topic used for all messages, with slashes (ha/in = routing key ha.in).
@@ -41,7 +44,7 @@ configuration:
     description: "manual = MQTT credentials configured here; provisioned = persistent identity, certificate and operational mTLS connection."
   provisioning_ca_file:
     name: Provisioning public CA
-    description: "Path to the public CA used to verify the issued certificate. Empty = certificate cannot be verified."
+    description: "Path to the public CA file under /ssl used to verify the issued certificate. Default: /ssl/provisioning-ca.crt. Required in provisioned mode."
   provisioning_common_name:
     name: Expected certificate CN
     description: "Empty = gateBee_<compact serial>. The operational CN is set by the backend."
@@ -62,7 +65,7 @@ configuration:
     description: "Broker port for the provisioning channel (default 8883)."
   provisioning_bootstrap_ca_file:
     name: Broker TLS CA for bootstrap
-    description: "Path to the public CA that signs the broker server certificate. Empty = system roots."
+    description: "Path to the public CA file under /ssl that signs the broker server certificate. Default: /ssl/broker-ca.crt."
   provisioning_allow_legacy_ca:
     name: Allow legacy CA (lab only)
     description: "Relaxes only the X.509 profile; chain, hostname and dates remain verified. Requires an explicit CA file."

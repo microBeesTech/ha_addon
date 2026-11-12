@@ -1,5 +1,5 @@
 name: "MQTT Bridge"
-version: "0.4.1"
+version: "0.4.2"
 slug: "mqtt_bridge"
 description: "Invia su MQTT dispositivi, entità ed eventi di Home Assistant così come sono ed esegue i comandi ricevuti."
 arch:
@@ -13,19 +13,23 @@ startup: application
 boot: auto
 # Rete dell'host: smartgate_serial = MAC dell'host, letto con uuid.getnode() sulle interfacce dell'host
 host_network: true
-# Accesso in sola lettura a /ssl per le CA pubbliche del provisioning
+# Accesso in sola lettura a /ssl per certificati CA pubblici e file password
 map:
   - ssl:ro
 # Accesso all'API WebSocket di Home Assistant tramite il Supervisor (registri, stati ed esecuzione dei comandi ricevuti)
 homeassistant_api: true
+# Accesso mirato al bus del ring DSGW-210. Se il nodo non esiste, il driver resta inattivo.
+devices:
+  - /dev/i2c-0
 options:
+  led_status: true
   mqtt_host: ""
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
   mqtt_password_file: ""
   mqtt_tls_port: 8884
-  mqtt_tls_ca_file: ""
+  mqtt_tls_ca_file: "/ssl/broker-ca.crt"
   topic: "ha/in"
   command_topic: ""
   smartgate_serial: ""
@@ -33,20 +37,21 @@ options:
   send_device_status: true
   log_level: "info"
   provisioning_mode: "manual"
-  provisioning_ca_file: ""
+  provisioning_ca_file: "/ssl/provisioning-ca.crt"
   provisioning_common_name: ""
   provisioning_bootstrap_dedicated: false
   provisioning_bootstrap_host: ""
   provisioning_bootstrap_username: ""
   provisioning_bootstrap_password_file: ""
   provisioning_bootstrap_port: 8883
-  provisioning_bootstrap_ca_file: ""
+  provisioning_bootstrap_ca_file: "/ssl/broker-ca.crt"
   provisioning_allow_legacy_ca: false
   provisioning_request_topic: "ha/provisioning/requests"
   provisioning_reply_prefix: "ha/provisioning/replies/"
   provisioning_timeout: 30
   provisioning_reset_identity: false
 schema:
+  led_status: bool
   mqtt_host: str
   mqtt_port: port
   mqtt_username: str?

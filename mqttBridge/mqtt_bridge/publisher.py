@@ -63,6 +63,7 @@ class MqttPublisher:
         self._subscriptions: dict[int, str] = {}  # mid -> topic, per il log dell'esito
         self._published_topics: set[str] = set()
         self._on_connected = on_connected
+        self._on_disconnected: Callable[[], None] | None = None
         self._command_topic = command_topic
         self._on_command = on_command
         self._connected = threading.Event()  # impostato dal thread di paho, letto dall'asyncio del bridge
@@ -91,6 +92,9 @@ class MqttPublisher:
     def start(self) -> None:
         self._client.connect_async(self._host, self._port, keepalive=60)
         self._client.loop_start()
+
+    def set_on_disconnected(self, callback: Callable[[], None]) -> None:
+        self._on_disconnected = callback
 
     def stop(self) -> None:
         self._client.disconnect()
@@ -202,27 +206,18 @@ class MqttPublisher:
         failures = [rc for rc in reason_code_list if getattr(rc, "is_failure", False)]
         if failures:
             self._subscription_error = f"sottoscrizione {topic} rifiutata: {failures[0]}"
-            self._ready.set()
             _LOGGER.error(
                 "Iscrizione a %s rifiutata dal broker: %s (permessi di lettura dell'utente); "
                 "nessun dispositivo verra' pubblicato",
                 topic,
                 failures[0],
             )
-            return
-        for rc in reason_code_list:
-            _LOGGER.info("Iscrizione a %s confermata dal broker: %s", topic, rc)
-        self._ready.set()
-        if self._on_connected:
-            self._on_connected()
-
-    def _handle_subscribe(self, client, userdata, mid, reason_code_list, properties) -> None:
-        topic = self._subscriptions.pop(mid, None)
-        for rc in reason_code_list:
-            if getattr(rc, "is_failure", False):
-                _LOGGER.error("Iscrizione a %s rifiutata dal broker: %s (permessi di lettura dell'utente)", topic, rc)
-            else:
+        else:
+            for rc in reason_code_list:
                 _LOGGER.info("Iscrizione a %s confermata dal broker: %s", topic, rc)
+            if self._on_connected:
+                self._on_connected()
+        self._ready.set()
 
     def _handle_message(self, client, userdata, message) -> None:
         _LOGGER.debug("MQTT ← %s %s", message.topic, message.payload.decode("utf-8", errors="replace"))
@@ -234,3 +229,5 @@ class MqttPublisher:
         self._ready.clear()
         if reason_code != 0:
             _LOGGER.warning("MQTT disconnesso (%s), riconnessione automatica", reason_code)
+        if self._on_disconnected:
+            self._on_disconnected()

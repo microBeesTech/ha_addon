@@ -12,6 +12,7 @@ from .bridge import Bridge
 from .config import Settings, load_settings
 from .ha_client import HomeAssistantClient
 from .identity import IdentityError, IdentityStore, reset_identity_files
+from .led import RingLED
 from .provisioning import ProvisioningError, run_provisioning
 from .publisher import MqttPublisher
 
@@ -57,7 +58,7 @@ def apply_log_level(level: str) -> None:
     logging.getLogger("paho").setLevel(logging.INFO)
 
 
-def provision_identity(settings: Settings) -> IdentityStore:
+def provision_identity(settings: Settings, led: RingLED) -> IdentityStore:
     """Identita' persistente, CSR e attesa del certificato; nessun fallback a password."""
 
     try:
@@ -68,9 +69,10 @@ def provision_identity(settings: Settings) -> IdentityStore:
             common_name=settings.provisioning_common_name,
             trusted_ca_file=Path(settings.provisioning_ca_file) if settings.provisioning_ca_file else None,
         )
-        run_provisioning(settings, store)
+        run_provisioning(settings, store, led.set_state)
         return store
     except (IdentityError, ProvisioningError) as err:
+        led.set_state("error")
         _LOGGER.error("Provisioning non completato: %s. Nessuna rigenerazione automatica.", err)
         raise SystemExit(1) from err
 
@@ -82,10 +84,12 @@ def mqtt_client_id(settings: Settings) -> str:
 async def run_bridge(
     settings: Settings,
     mqtt_factory: Callable[[Callable[[], None], Callable[[bytes], None]], MqttPublisher],
+    led: RingLED,
 ) -> None:
     """Avvia il bridge con il publisher scelto (password manuale o mTLS provisioned)."""
 
     ha = HomeAssistantClient(settings.ha_url, settings.supervisor_token)
+    led.set_state("connecting")
     loop = asyncio.get_running_loop()
     bridge: Bridge | None = None
     first_connection = True
@@ -96,6 +100,7 @@ async def run_bridge(
         nonlocal first_connection
         if bridge is None:
             return
+        led.set_state("connecting")
         bridge.send_heartbeat()
         if not first_connection:
             asyncio.run_coroutine_threadsafe(bridge.resync(), loop)
@@ -107,7 +112,8 @@ async def run_bridge(
             asyncio.run_coroutine_threadsafe(bridge.handle_command(payload), loop)
 
     mqtt = mqtt_factory(on_mqtt_connected, on_command)
-    bridge = Bridge(settings, ha, mqtt)
+    mqtt.set_on_disconnected(lambda: led.set_state("reconnecting"))
+    bridge = Bridge(settings, ha, mqtt, led)
 
     mqtt.start()
     tasks = [asyncio.create_task(bridge.run()), asyncio.create_task(bridge.heartbeat_loop())]
@@ -123,16 +129,20 @@ async def run_bridge(
     await asyncio.gather(*tasks, return_exceptions=True)
     await ha.close()
     mqtt.stop()
+    led.set_state("off")
+    led.close()
 
 
 async def main() -> None:
     settings = load_settings()
     apply_log_level(settings.log_level)
     _LOGGER.info("Avvio: %r", settings)
+    led = RingLED(enabled=settings.led_status)
+    led.start()
 
     if settings.provisioning_mode == "provisioned":
         apply_identity_reset(settings)
-        store = provision_identity(settings)
+        store = provision_identity(settings, led)
 
         def provisioned_mqtt(
             on_connected: Callable[[], None], on_command: Callable[[bytes], None]
@@ -153,7 +163,7 @@ async def main() -> None:
                 vhost_label="beessmart (porta 8884)",
             )
 
-        await run_bridge(settings, provisioned_mqtt)
+        await run_bridge(settings, provisioned_mqtt, led)
         return
 
     def manual_mqtt(
@@ -170,7 +180,8 @@ async def main() -> None:
             on_command=on_command,
         )
 
-    await run_bridge(settings, manual_mqtt)
+    led.set_state("connecting")
+    await run_bridge(settings, manual_mqtt, led)
 
 
 if __name__ == "__main__":

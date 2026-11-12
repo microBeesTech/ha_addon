@@ -57,6 +57,7 @@ class Settings:
     mqtt_password_file: str | None = None
     # Reset una-tantum di /data/provisioning, senza disinstallare l'add-on.
     provisioning_reset_identity: bool = False
+    led_status: bool = True
 
     def __repr__(self) -> str:  # niente password né token nei log
         provisioned = self.provisioning_mode == "provisioned"
@@ -150,10 +151,10 @@ def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) 
         bootstrap_username = (options.get("mqtt_username") or "").strip() or None
         bootstrap_password = mqtt_password
 
-    ca_file = (options.get("provisioning_ca_file") or "").strip() or None
+    ca_file = (options.get("provisioning_ca_file") or "").strip() or "/ssl/provisioning-ca.crt"
     if ca_file and not Path(ca_file).is_absolute():
         raise RuntimeError("provisioning_ca_file deve essere un percorso assoluto")
-    bootstrap_ca_file = (options.get("provisioning_bootstrap_ca_file") or "").strip() or None
+    bootstrap_ca_file = (options.get("provisioning_bootstrap_ca_file") or "").strip() or "/ssl/broker-ca.crt"
     if bootstrap_ca_file and not Path(bootstrap_ca_file).is_absolute():
         raise RuntimeError("provisioning_bootstrap_ca_file deve essere un percorso assoluto")
     request_topic = (options.get("provisioning_request_topic") or "ha/provisioning/requests").strip()
@@ -179,6 +180,7 @@ def load_settings(path: Path = OPTIONS_FILE, env: dict[str, str] | None = None) 
     serial = (options.get("smartgate_serial") or "").strip().lower() or host_mac()
 
     return Settings(
+        led_status=bool(options.get("led_status", True)),
         mqtt_host=mqtt_host,
         mqtt_port=int(options.get("mqtt_port", 1883)),
         mqtt_username=(options.get("mqtt_username") or "").strip() or None,

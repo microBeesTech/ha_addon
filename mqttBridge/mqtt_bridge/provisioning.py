@@ -15,6 +15,7 @@ import random
 import ssl
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -228,7 +229,7 @@ class ProvisioningClient:
             _LOGGER.warning("Risposte di provisioning in eccesso: scartata l'ultima")
 
 
-def run_provisioning(settings: Settings, store: IdentityStore) -> None:
+def run_provisioning(settings: Settings, store: IdentityStore, on_state: Callable[[str], None] | None = None) -> None:
     """Ciclo di richiesta/attesa. Esce solo su stato terminale o certificato operativo."""
 
     if settings.provisioning_allow_legacy_ca and not settings.provisioning_bootstrap_ca_file:
@@ -269,8 +270,12 @@ def run_provisioning(settings: Settings, store: IdentityStore) -> None:
             )
 
         try:
+            if on_state:
+                on_state("connecting")
             reply = ProvisioningClient(settings).request(identity, float(settings.provisioning_timeout))
         except Exception as err:  # rete, TLS, broker, timeout: si ritenta con lo stesso request_id
+            if on_state:
+                on_state("reconnecting")
             _LOGGER.warning("Provisioning non riuscito (%s), nuovo tentativo tra %.0fs", err, delay)
             time.sleep(delay * random.uniform(0.8, 1.2))
             delay = min(delay * 2, 300.0)
@@ -278,6 +283,8 @@ def run_provisioning(settings: Settings, store: IdentityStore) -> None:
 
         status = reply["status"]
         if status == "approved":
+            if on_state:
+                on_state("connecting")
             try:
                 identity = store.save_certificate(reply_bundle(reply))
             except IdentityError as err:
@@ -288,6 +295,8 @@ def run_provisioning(settings: Settings, store: IdentityStore) -> None:
             raise ProvisioningError(f"certificato salvato ma non operativo: stato {identity.state.value}")
 
         if status == "pending":
+            if on_state:
+                on_state("pending")
             _LOGGER.info(
                 "Provisioning in attesa (%s): il gateway deve essere reclamato; nuovo tentativo tra %.0fs",
                 reply.get("error_code"),
@@ -298,6 +307,8 @@ def run_provisioning(settings: Settings, store: IdentityStore) -> None:
             continue
 
         if status == "error" and reply.get("retryable"):
+            if on_state:
+                on_state("reconnecting")
             _LOGGER.warning(
                 "Provisioning temporaneamente non disponibile (%s), nuovo tentativo tra %.0fs",
                 reply.get("error_code"),
@@ -308,6 +319,8 @@ def run_provisioning(settings: Settings, store: IdentityStore) -> None:
             continue
 
         if status == "error":
+            if on_state:
+                on_state("error")
             reason = f"{reply.get('error_code')}: {reply.get('error_message') or 'errore terminale'}"
             try:
                 store.reject(reason)
@@ -316,6 +329,8 @@ def run_provisioning(settings: Settings, store: IdentityStore) -> None:
             raise ProvisioningError(f"provisioning non disponibile: {reason}")
 
         if status in ("rejected", "conflict"):
+            if on_state:
+                on_state("error")
             reason = f"{reply.get('error_code')}: {reply.get('error_message') or status}"
             try:
                 store.reject(reason)

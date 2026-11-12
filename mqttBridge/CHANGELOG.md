@@ -1,5 +1,18 @@
 # Changelog
 
+## Non rilasciato
+### Modificato
+- I percorsi CA predefiniti puntano ai file pubblici forniti sotto `/ssl`; i certificati non sono inclusi nell'add-on. La password bootstrap resta esterna.
+- Corretto l'handler SUBACK effettivamente usato: il callback di connessione viene chiamato dopo un SUBACK positivo; un rifiuto viene propagato al ciclo di retry invece di lasciare il bridge in attesa fino al timeout.
+### Aggiunto
+- Indicatori di stato sul ring DSGW, con callback MQTT per mostrare la riconnessione. L'add-on dichiara `/dev/i2c-0`; l'avvio su host senza questo device resta da verificare.
+
+## [0.4.2] - 2026-11-12
+### Aggiunto
+- Indicazione degli stati del bridge sul ring LED DSGW-210, con rilevamento facoltativo del bus I²C.
+- Opzione `led_status` per disattivare gli indicatori.
+- Percorsi predefiniti per le CA pubbliche del provisioning e del broker sotto `/ssl`; certificati e password non sono incorporati nell'immagine.
+
 ## [0.4.1] - 2026-11-06
 ### Aggiunto
 - Identità persistente del gateway (`provisioning_mode: provisioned`): chiave EC P-256 in PKCS8, CSR, `request_id`,

@@ -5,14 +5,23 @@ che riceve dal Cloud.
 
 ## Configurazione
 
+### Indicatori LED
+
+`led_status` è attivo per impostazione predefinita. Il ring RGB del DSGW richiede che Home Assistant esponga `/dev/i2c-0` all'add-on: `config.yaml` dichiara questo device. Se il nodo non è presente o il driver non riesce ad accedere al bus, il codice LED registra l'indisponibilità e il bridge prosegue senza indicatori. Resta da verificare se Home Assistant avvia l'add-on su un host che non dispone del device dichiarato; la gestione dell'errore nel driver non dimostra che il Supervisor consenta l'avvio. Disattiva `led_status` per lasciare il ring a un altro software.
+
+Gli stati mostrati sono: avvio (blu con respiro), richiesta di provisioning in attesa di claim (ambra con respiro), connessione in corso (ciano rotante), connessione MQTT e sincronizzazione HA riuscite (verde fisso), riconnessione (ambra rotante), errore di provisioning (rosso fisso).
+
+L'add-on non include certificati CA. Fornisci i certificati **pubblici** sotto `/ssl`: `broker-ca.crt` verifica il certificato server del broker sia nel bootstrap sia nella connessione operativa; `provisioning-ca.crt` verifica il certificato gateway emesso dal Cloud. Le chiavi private non sono incluse. La password bootstrap resta separata: fornisci un file sotto `/ssl` e indica il percorso in `provisioning_bootstrap_password_file`.
+
 | Opzione | Default | Descrizione |
 |---|---|---|
+| `led_status` | `true` | Mostra gli stati sul ring DSGW, se il device `/dev/i2c-0` è disponibile |
 | `mqtt_host` | — | Host del broker MQTT |
 | `mqtt_port` | `1883` | Porta MQTT senza TLS usata soltanto in modalità `manual` |
 | `mqtt_username` / `mqtt_password` | — | Credenziali del broker, utente nel formato `vhost:<utente>` (la password non compare mai nei log) |
 | `mqtt_password_file` | vuoto | File password per la modalità manuale o il bootstrap legacy; alternativo a `mqtt_password` |
 | `mqtt_tls_port` | `8884` | Porta MQTT TLS operativa in modalità `provisioned` |
-| `mqtt_tls_ca_file` | vuoto | CA pubblica per verificare il broker operativo; vuoto = truststore di sistema |
+| `mqtt_tls_ca_file` | `/ssl/broker-ca.crt` | `broker-ca.crt`: verifica il server del broker operativo |
 | `topic` | `ha/in` | Topic di tutti i messaggi in uscita. Con la barra: RabbitMQ lo traduce nella routing key `ha.in` (scritto `ha.in` diventerebbe `ha/in` e non arriverebbe al Cloud) |
 | `command_topic` | vuoto | Topic dei comandi dal Cloud. Vuoto = `ha/cmd/<serial>` con i due punti, in minuscolo (es. `ha/cmd/30:ae:7b:ea:86:80`): RabbitMQ lo traduce nella routing key `ha.cmd.30:ae:7b:ea:86:80` |
 | `smartgate_serial` | vuoto | Serial del gateway; vuoto = MAC dell'host |
@@ -20,19 +29,31 @@ che riceve dal Cloud.
 | `send_device_status` | `true` | Inoltra gli eventi `state_changed` |
 | `log_level` | `info` | `off` nessun log · `error` solo errori · `warning` anche avvisi (riconnessioni) · `info` anche avvio, connessioni e riepilogo dell'invio iniziale · `debug` anche ogni JSON inviato per intero (`MQTT → <topic> <json>`) e ogni comando ricevuto (`MQTT ← <topic> <json>`) |
 | `provisioning_mode` | `manual` | `manual` mantiene il percorso 0.4.0 con credenziali configurate qui. `provisioned` usa l'identità persistente e, dopo l'approvazione, la connessione operativa mTLS. Nessun passaggio automatico fra le due modalità |
-| `provisioning_ca_file` | — | Percorso della CA pubblica con cui verificare il certificato emesso. Vuoto: il certificato resta non verificato e non diventa operativo |
+| `provisioning_ca_file` | `/ssl/provisioning-ca.crt` | `provisioning-ca.crt`: verifica il certificato gateway emesso; obbligatorio in modalità `provisioned` |
 | `provisioning_common_name` | — | CN atteso nel certificato. Vuoto = `gateBee_<serial compatto minuscolo>`. Il CN operativo è fissato dal backend |
 | `provisioning_bootstrap_port` | `8883` | Porta MQTT TLS del canale bootstrap (distinta dalla `mqtt_port` manuale) |
 | `provisioning_bootstrap_dedicated` | `false` | Se `true`, usa solo l'endpoint e le credenziali bootstrap dedicate qui sotto; nella modalità `provisioned` rifiuta password legacy configurate |
 | `provisioning_bootstrap_host` | — | Host del broker nel vhost bootstrap; obbligatorio con configurazione dedicata |
 | `provisioning_bootstrap_username` | — | Utente bootstrap dedicato, senza privilegi amministrativi |
 | `provisioning_bootstrap_password_file` | — | Percorso assoluto del file password bootstrap dedicato; obbligatorio con configurazione dedicata |
-| `provisioning_bootstrap_ca_file` | — | CA pubblica che firma il certificato server del broker. Vuoto = root di sistema |
+| `provisioning_bootstrap_ca_file` | `/ssl/broker-ca.crt` | `broker-ca.crt`: verifica il server del broker bootstrap |
 | `provisioning_allow_legacy_ca` | `false` | Solo laboratorio: allenta il profilo X.509, non catena/hostname/scadenze. Richiede una CA esplicita |
 | `provisioning_request_topic` | `ha/provisioning/requests` | Topic della richiesta di provisioning |
 | `provisioning_reply_prefix` | `ha/provisioning/replies/` | Prefisso del topic di risposta; si aggiunge il `request_id` |
 | `provisioning_timeout` | `30` | Attesa di connessione, sottoscrizione e risposta, in secondi |
 | `provisioning_reset_identity` | `false` | Cancella una sola volta l’identità locale; non revoca il certificato sul broker né elimina la pratica Cloud |
+
+I percorsi predefiniti puntano ai file forniti sotto `/ssl`. Se usi nomi o directory diversi, imposta un percorso assoluto alternativo; se le CA bootstrap e operativa differiscono, configura separatamente i due campi `*_ca_file` del broker. La password bootstrap non è una CA e va fornita separatamente tramite `provisioning_bootstrap_password_file` o il campo password previsto.
+
+Esempio per la modalità provisioned: predisponi i certificati CA pubblici e il file password bootstrap sotto `/ssl`.
+
+```yaml
+provisioning_mode: provisioned
+mqtt_tls_ca_file: /ssl/broker-ca.crt
+provisioning_ca_file: /ssl/provisioning-ca.crt
+provisioning_bootstrap_ca_file: /ssl/broker-ca.crt
+provisioning_bootstrap_password_file: /ssl/gateway-provisioning-password
+```
 
 ## Identità persistente del gateway
 
@@ -183,8 +204,7 @@ QoS 0): mentre è disconnesso il broker non tiene la sua coda, quindi un comando
   in lettura `config/device_registry/list`, `config/entity_registry/list` + `get_entries`, `get_states`, eventi
   `device_registry_updated`, `entity_registry_updated` e `state_changed`; in scrittura solo `call_service` e `config/<registry>_registry/update` per i comandi ricevuti. Se Home Assistant si riavvia,
   l'add-on si riconnette (attesa crescente fino a 60 s) e rifà l'invio iniziale.
-- **MQTT**: paho-mqtt 2.x, riconnessione automatica (1–120 s). L’invio iniziale parte solo dopo la conferma SUBACK dei comandi e viene
-  rifatto a ogni riconnessione; gli eventi arrivati mentre il broker non era raggiungibile sono scartati (log WARNING).
+- **MQTT**: paho-mqtt 2.x, riconnessione automatica (1–120 s). Con un topic comandi configurato, il publisher diventa pronto solo dopo il SUBACK positivo e chiama il callback di connessione; a quel punto il bridge avvia l'invio iniziale, che viene ripetuto a ogni riconnessione. Se il broker rifiuta il SUBACK, il publisher registra l'errore, non chiama il callback e `wait_ready` forza la disconnessione e il nuovo tentativo: niente inventario o heartbeat viene inviato in quella sessione. Alla disconnessione il callback aggiorna il ring LED a `reconnecting` (ambra rotante); al tentativo successivo passa a `connecting` (ciano rotante). Gli eventi arrivati mentre il broker non era raggiungibile sono scartati (log WARNING).
 - **Utente MQTT manuale/bootstrap su RabbitMQ**: il plugin MQTT può ricavare il vhost dal nome utente, `vhost:utente` (es. `vhost:homeassistant`).
   Senza prefisso usa il vhost configurato come predefinito sul broker.
 - **Log di connessione** (livello `info`, senza i messaggi): utente, vhost, `client_id`, topic con la routing key AMQP

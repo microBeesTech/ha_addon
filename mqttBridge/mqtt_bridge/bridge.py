@@ -23,6 +23,7 @@ from typing import Any
 from . import messages
 from .config import Settings
 from .ha_client import HomeAssistantClient
+from .led import RingLED
 from .publisher import MqttCommandSubscriptionError, MqttPublisher
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,10 +32,11 @@ RECONNECT_DELAY_MAX = 60
 
 
 class Bridge:
-    def __init__(self, settings: Settings, ha: HomeAssistantClient, mqtt: MqttPublisher) -> None:
+    def __init__(self, settings: Settings, ha: HomeAssistantClient, mqtt: MqttPublisher, led: RingLED | None = None) -> None:
         self._settings = settings
         self._ha = ha
         self._mqtt = mqtt
+        self._led = led
         # unit_system di get_config, letto a ogni invio iniziale (cambia solo dalle impostazioni di Home Assistant)
         self._unit_system: dict[str, Any] | None = None
 
@@ -46,6 +48,8 @@ class Bridge:
             reader: asyncio.Task | None = None
             try:
                 await self._ha.connect()
+                if self._led:
+                    self._led.set_state("connecting")
                 reader = asyncio.create_task(self._ha.run_forever())
                 await self._ha.subscribe("device_registry_updated", self._on_device_registry_updated)
                 await self._ha.subscribe("entity_registry_updated", self._on_entity_registry_updated)
@@ -55,16 +59,22 @@ class Bridge:
                 # altrimenti il Cloud crederebbe il gateway operativo senza poter inviare comandi.
                 await self._mqtt.wait_ready()
                 await self.full_sync()
+                if self._led:
+                    self._led.set_state("online")
                 delay = 1
                 await reader
                 _LOGGER.warning("Connessione con Home Assistant chiusa, riconnessione")
             except asyncio.CancelledError:
                 raise
             except MqttCommandSubscriptionError as err:
+                if self._led:
+                    self._led.set_state("reconnecting")
                 _LOGGER.warning(
                     "Sottoscrizione comandi non confermata (%s), nuovo tentativo tra %ss", err, delay
                 )
             except Exception as err:
+                if self._led:
+                    self._led.set_state("reconnecting")
                 _LOGGER.warning("Home Assistant non raggiungibile (%s), nuovo tentativo tra %ss", err, delay)
             finally:
                 if reader is not None and not reader.done():
@@ -114,6 +124,8 @@ class Bridge:
         for entity in by_device.get(None, []):
             self._publish(messages.entity_snapshot(entity, states, self._settings.smartgate_serial, self._unit_system))
         _LOGGER.info("Invio iniziale: %s dispositivi, %s entità", len(devices), len(entities))
+        if self._led:
+            self._led.set_state("online")
 
     # ------------------------------------------------------------------------------ eventi ---
 
