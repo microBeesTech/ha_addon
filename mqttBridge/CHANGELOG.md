@@ -4,9 +4,11 @@
 ### Modificato
 - I percorsi CA predefiniti puntano ai file pubblici forniti sotto `/ssl`; i certificati non sono inclusi nell'add-on. La password bootstrap resta esterna.
 - Corretto l'handler SUBACK effettivamente usato: il callback di connessione viene chiamato dopo un SUBACK positivo; un rifiuto viene propagato al ciclo di retry invece di lasciare il bridge in attesa fino al timeout.
+- Dopo `pending`, il provisioning mantiene aperta la sottoscrizione bootstrap; alla riconnessione ripubblica la stessa identità e lo stesso `request_id`.
 ### Aggiunto
-- Indicatori di stato sul ring DSGW, con callback MQTT per mostrare la riconnessione. L'add-on dichiara `/dev/i2c-0`; l'avvio su host senza questo device resta da verificare.
-
+- Indicatori di stato sul ring DSGW e callback MQTT per mostrare la riconnessione. L'add-on dichiara `/dev/i2c-0`; l'avvio su host senza questo device resta da verificare.
+### Collaudato
+- Claim online e recupero dopo un claim offline. La perdita di `approved` è stata simulata lato client: il gateway riprende dopo la riconnessione.
 ## [0.4.2] - 2026-11-12
 ### Aggiunto
 - Indicazione degli stati del bridge sul ring LED DSGW-210, con rilevamento facoltativo del bus I²C.

@@ -83,7 +83,8 @@ Con `provisioning_mode: provisioned` l'add-on apre una connessione **MQTT TLS** 
 
 - QoS 1, nessun retained.
 - La risposta deve avere lo stesso `request_id`; una risposta con ID diverso viene scartata.
-- `pending` e `error` retryable → disconnessione e nuovo tentativo con la stessa identità e lo stesso request ID, con backoff (5 s fino a 300 s, jitter). Tra i tentativi il gateway non resta in ascolto; prima dell’approvazione non invia inventario o heartbeat operativo.
+- Dopo `pending` il gateway resta sottoscritto al topic di risposta sulla connessione bootstrap. Il claim può quindi completare il provisioning senza una seconda richiesta. Dopo una disconnessione il gateway si risottoscrive e ripubblica lo stesso CSR e lo stesso `request_id`.
+- Un `error` retryable avvia un nuovo tentativo con backoff (5 s fino a 300 s, jitter). Il Cloud ritenta `approved` se RabbitMQ non conferma la pubblicazione o segnala che manca una destinazione. Se il broker conferma la consegna ma il gateway non elabora la risposta, non esiste una conferma applicativa gateway→Cloud: l'add-on resta in attesa finché la connessione non si interrompe e si riconnette. Inventario e heartbeat operativo iniziano dopo il passaggio a mTLS.
 - `approved` → il certificato viene verificato e salvato; senza `provisioning_ca_file` resta `certificate_received`.
 - `rejected`/`conflict` → stato `rejected`, nessun nuovo tentativo automatico; serve un intervento manuale (nessun reset o nuova chiave automatici).
 - La verifica TLS del server non viene mai disabilitata. `provisioning_allow_legacy_ca` allenta solo il profilo X.509 e richiede una CA esplicita.

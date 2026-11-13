@@ -112,15 +112,16 @@ def create_ssl_context(ca_file: str | None, allow_legacy_ca: bool) -> ssl.SSLCon
 
 
 class ProvisioningClient:
-    """Una connessione bootstrap per tentativo: pubblica la richiesta e attende la reply correlata."""
+    """Mantiene la sottoscrizione bootstrap finché il cloud non risponde con uno stato terminale."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=10)
+        self._queue: queue.Queue[tuple[str, dict[str, Any] | str]] = queue.Queue()
         self._reply_topic = ""
+        self._request_payload = ""
+        self._stopping = False
         self._connected = threading.Event()
         self._subscribed = threading.Event()
-        self._connect_error: list[str] = []
         self._client = self._build_client()
 
     def _build_client(self) -> mqtt.Client:
@@ -139,7 +140,9 @@ class ProvisioningClient:
         client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
             client_id=f"ha-mqtt-provisioning-{serial}",
+            clean_session=True,
         )
+        client.reconnect_delay_set(min_delay=1, max_delay=60)
         if bootstrap_username:
             client.username_pw_set(bootstrap_username, bootstrap_password)
         client.tls_set_context(
@@ -149,15 +152,22 @@ class ProvisioningClient:
             )
         )
         client.on_connect = self._on_connect
+        client.on_disconnect = self._on_disconnect
         client.on_subscribe = self._on_subscribe
         client.on_message = self._on_message
         return client
 
-    def request(self, identity: GatewayIdentity, timeout: float) -> dict[str, Any]:
+    def request(
+        self,
+        identity: GatewayIdentity,
+        timeout: float,
+        on_state: Callable[[str], None] | None = None,
+    ) -> dict[str, Any]:
         self._reply_topic = self._settings.provisioning_reply_prefix + identity.request_id
+        self._request_payload = build_request(identity, self._settings.addon_version)
+        self._stopping = False
         self._connected.clear()
         self._subscribed.clear()
-        self._connect_error = []
         try:
             self._client.connect(
                 self._bootstrap_host,
@@ -167,54 +177,85 @@ class ProvisioningClient:
             self._client.loop_start()
             if not self._connected.wait(timeout):
                 raise ProvisioningError("timeout di connessione al broker bootstrap")
-            if self._connect_error:
-                raise ProvisioningError(f"connessione bootstrap rifiutata: {self._connect_error[0]}")
             if not self._subscribed.wait(timeout):
                 raise ProvisioningError("timeout della sottoscrizione al topic di risposta")
-            if self._connect_error:
-                raise ProvisioningError(f"sottoscrizione bootstrap rifiutata: {self._connect_error[0]}")
-
-            info = self._client.publish(
-                self._settings.provisioning_request_topic,
-                build_request(identity, self._settings.addon_version),
-                qos=1,
-                retain=False,
-            )
-            info.wait_for_publish(timeout=timeout)
-            if not info.is_published():
-                raise ProvisioningError("pubblicazione della richiesta non confermata")
-
-            deadline = time.monotonic() + timeout
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise ProvisioningError("timeout della risposta di provisioning")
-                try:
-                    reply = self._queue.get(timeout=remaining)
-                except queue.Empty as err:
-                    raise ProvisioningError("timeout della risposta di provisioning") from err
-                if reply.get("request_id") == identity.request_id:
-                    return parse_reply(json.dumps(reply).encode("utf-8"), identity.request_id)
+            return self._wait_for_terminal_reply(identity, on_state)
         finally:
+            self._stopping = True
             try:
                 self._client.disconnect()
             finally:
                 self._client.loop_stop()
 
+    def _wait_for_terminal_reply(
+        self,
+        identity: GatewayIdentity,
+        on_state: Callable[[str], None] | None,
+    ) -> dict[str, Any]:
+        pending_reported = False
+        while True:
+            event, value = self._queue.get()
+            if event == "error":
+                raise ProvisioningError(str(value))
+            if event == "state":
+                if on_state:
+                    on_state(str(value))
+                continue
+            reply = value
+            assert isinstance(reply, dict)
+            if reply.get("request_id") != identity.request_id:
+                continue
+            parsed = parse_reply(json.dumps(reply).encode("utf-8"), identity.request_id)
+            if parsed["status"] == "pending":
+                if not pending_reported:
+                    if on_state:
+                        on_state("pending")
+                    _LOGGER.info("Provisioning in attesa del claim; sottoscrizione bootstrap mantenuta attiva")
+                    pending_reported = True
+                continue
+            return parsed
+
     def _on_connect(self, client: mqtt.Client, userdata: Any, flags: Any, reason_code: Any, properties: Any) -> None:
         if reason_code.is_failure:
-            self._connect_error.append(str(reason_code))
+            self._queue.put(("error", f"connessione bootstrap rifiutata: {reason_code}"))
             self._connected.set()
+            self._subscribed.set()
             return
-        client.subscribe(self._reply_topic, qos=1)
         self._connected.set()
+        self._subscribed.clear()
+        self._queue.put(("state", "connecting"))
+        client.subscribe(self._reply_topic, qos=1)
+
+    def _on_disconnect(
+        self,
+        client: mqtt.Client,
+        userdata: Any,
+        disconnect_flags: Any,
+        reason_code: Any,
+        properties: Any,
+    ) -> None:
+        self._connected.clear()
+        self._subscribed.clear()
+        if not self._stopping:
+            self._queue.put(("state", "reconnecting"))
 
     def _on_subscribe(self, client: mqtt.Client, userdata: Any, mid: int, reason_codes: Any, properties: Any) -> None:
         for reason_code in reason_codes:
             if getattr(reason_code, "is_failure", False):
-                self._connect_error.append(f"sottoscrizione rifiutata: {reason_code}")
-                break
+                self._queue.put(("error", f"sottoscrizione bootstrap rifiutata: {reason_code}"))
+                self._subscribed.set()
+                return
         self._subscribed.set()
+        info = client.publish(
+            self._settings.provisioning_request_topic,
+            self._request_payload,
+            qos=1,
+            retain=False,
+        )
+        if info.rc != mqtt.MQTT_ERR_SUCCESS:
+            self._queue.put(("error", f"pubblicazione della richiesta non riuscita: {mqtt.error_string(info.rc)}"))
+            return
+        _LOGGER.info("Richiesta provisioning pubblicata; in ascolto su %s", self._reply_topic)
 
     def _on_message(self, client: mqtt.Client, userdata: Any, message: mqtt.MQTTMessage) -> None:
         if message.topic != self._reply_topic:
@@ -223,10 +264,9 @@ class ProvisioningClient:
             reply = json.loads(message.payload.decode("utf-8"))
         except (UnicodeDecodeError, ValueError):
             return
-        try:
-            self._queue.put_nowait(reply)
-        except queue.Full:
-            _LOGGER.warning("Risposte di provisioning in eccesso: scartata l'ultima")
+        if not isinstance(reply, dict) or reply.get("request_id") != self._reply_topic.rsplit("/", 1)[-1]:
+            return
+        self._queue.put_nowait(("reply", reply))
 
 
 def run_provisioning(settings: Settings, store: IdentityStore, on_state: Callable[[str], None] | None = None) -> None:
@@ -235,9 +275,7 @@ def run_provisioning(settings: Settings, store: IdentityStore, on_state: Callabl
     if settings.provisioning_allow_legacy_ca and not settings.provisioning_bootstrap_ca_file:
         raise ProvisioningError("provisioning_allow_legacy_ca richiede provisioning_bootstrap_ca_file")
     if settings.provisioning_bootstrap_ca_file and not Path(settings.provisioning_bootstrap_ca_file).is_file():
-        raise ProvisioningError(
-            f"CA TLS del broker non trovata: {settings.provisioning_bootstrap_ca_file}"
-        )
+        raise ProvisioningError(f"CA TLS del broker non trovata: {settings.provisioning_bootstrap_ca_file}")
     if settings.provisioning_ca_file and not Path(settings.provisioning_ca_file).is_file():
         raise ProvisioningError(f"CA di provisioning non trovata: {settings.provisioning_ca_file}")
     # Fallisce subito se la CA non e' leggibile/valida, invece di ritentare all'infinito.
@@ -272,7 +310,11 @@ def run_provisioning(settings: Settings, store: IdentityStore, on_state: Callabl
         try:
             if on_state:
                 on_state("connecting")
-            reply = ProvisioningClient(settings).request(identity, float(settings.provisioning_timeout))
+            reply = ProvisioningClient(settings).request(
+                identity,
+                float(settings.provisioning_timeout),
+                on_state,
+            )
         except Exception as err:  # rete, TLS, broker, timeout: si ritenta con lo stesso request_id
             if on_state:
                 on_state("reconnecting")
@@ -293,18 +335,6 @@ def run_provisioning(settings: Settings, store: IdentityStore, on_state: Callabl
             if identity.state is IdentityState.OPERATIONAL:
                 return
             raise ProvisioningError(f"certificato salvato ma non operativo: stato {identity.state.value}")
-
-        if status == "pending":
-            if on_state:
-                on_state("pending")
-            _LOGGER.info(
-                "Provisioning in attesa (%s): il gateway deve essere reclamato; nuovo tentativo tra %.0fs",
-                reply.get("error_code"),
-                delay,
-            )
-            time.sleep(delay * random.uniform(0.8, 1.2))
-            delay = min(delay * 2, 300.0)
-            continue
 
         if status == "error" and reply.get("retryable"):
             if on_state:
